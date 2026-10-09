@@ -1,0 +1,18 @@
+# Horizontal support plane + upright yaw-only differential-drive/zero-turn proxy.
+# Start.z MUST equal floor_z + mower_imu_height. No hidden height correction.
+mode: mower
+seed: 1234
+warmup: 1.0
+mower_radius: 0.32
+mower_imu_height: 0.45
+mower_top_above_imu: 0.12
+mower_lane_spacing: 0.48
+mower_alternate_axis: true
+limits.speed: 0.6
+limits.acceleration: 1.2
+limits.jerk: 6.0
+limits.angular_speed: 1.2
+limits.angular_acceleration: 3.0
+limits.angular_jerk: 16.0
+pause_probability: 0
+hold_when_blocked: false

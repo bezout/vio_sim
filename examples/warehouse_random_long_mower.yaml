@@ -1,0 +1,13 @@
+# Long deterministic mower motion in the warehouse scene.
+scene: warehouse
+trajectory: random_long
+motion_mode: mower
+motion_seed: 1234
+motion_config: motion/mower.yaml
+difficulty: medium
+duration: 1200
+camera_hz: 50
+imu_hz: 500
+samples: 1
+threads: 2
+output: output/warehouse_random_long_mower_120s

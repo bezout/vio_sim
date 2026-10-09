@@ -1,0 +1,27 @@
+# Short moving sequence for visual inspection and integration smoke tests.
+scene: lab_room
+trajectory: figure8
+difficulty: medium
+duration: 4
+period: 8
+size: 0.85
+warmup: 1
+ramp: 1
+yaw_deg: 9
+roll_deg: 2
+pitch_deg: 1.5
+width: 640
+height: 400
+camera_hz: 50
+imu_hz: 500
+baseline: 0.08
+fov_deg: 120
+xi: 0.8
+samples: 2
+texture_filter: mipmap
+threads: 4
+preview_count: 4
+seed: 1234
+lab_reflections: true
+lab_vignette: 0.78
+output: output/lab_room_preview

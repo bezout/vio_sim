@@ -1,0 +1,13 @@
+# Long deterministic scanner motion in the warehouse scene.
+scene: warehouse
+trajectory: random_long
+motion_mode: scanner
+motion_seed: 1234
+motion_config: motion/scanner.yaml
+difficulty: medium
+duration: 120
+camera_hz: 50
+imu_hz: 500
+samples: 2
+threads: 4
+output: output/warehouse_random_long_scanner_120s

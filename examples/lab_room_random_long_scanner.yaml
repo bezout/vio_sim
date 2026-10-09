@@ -1,0 +1,20 @@
+# Long, deterministic scanner motion in the current lab-room geometry.
+scene: lab_room
+trajectory: random_long
+motion_mode: scanner
+motion_seed: 1234
+motion_config: motion/scanner.yaml
+difficulty: easy
+duration: 120
+camera_hz: 50
+imu_hz: 500
+width: 640
+height: 400
+baseline: 0.08
+fov_deg: 120
+xi: 0.8
+samples: 2
+threads: 4
+texture_filter: mipmap
+depth_every: 0
+output: output/lab_room_random_long_scanner_120s

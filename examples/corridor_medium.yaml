@@ -1,0 +1,15 @@
+# Longitudinal translation, repeated texture, limited angular motion.
+scene: corridor
+trajectory: back_and_forth
+difficulty: medium
+duration: 30
+period: 12
+size: 1.7
+yaw_deg: 3
+roll_deg: 0.5
+pitch_deg: 0.5
+warmup: 1
+ramp: 1
+samples: 2
+threads: 4
+output: output/corridor_medium_30s

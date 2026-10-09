@@ -1,0 +1,12 @@
+# Repeated ellipse; more duration repeats the same spatial loop.
+scene: warehouse
+trajectory: ellipse
+difficulty: medium
+duration: 120
+period: 18
+size: 2.2
+warmup: 1
+ramp: 1
+samples: 2
+threads: 4
+output: output/warehouse_medium_120s

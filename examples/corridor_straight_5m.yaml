@@ -1,0 +1,19 @@
+# Five metres straight ahead, with two static seconds before and after motion.
+scene: corridor
+trajectory: straight
+difficulty: easy
+duration: 9
+warmup: 2
+period: 5
+cooldown: 2
+size: 5
+yaw_offset_deg: 0
+samples: 2
+threads: 4
+output: output/corridor_straight_5m_9s
+
+
+gyro_noise_density: 0.0002
+accel_noise_density: 0.002
+gyro_bias_rw: 8.0e-7
+accel_bias_rw: 8.0e-6

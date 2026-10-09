@@ -1,0 +1,20 @@
+# Synthetic curved "light saber" swipes + occasional slow play-area relocation.
+# The imaginary blade and the user's arm/body are NOT collision geometry.
+mode: controller
+seed: 1234
+warmup: 1.0
+gesture_radius: 0.7
+controller_relocate_every: 16
+controller_relocate_speed: 0.6
+height_min: 0.45
+height_max: 2.15
+duration_min: 0.22
+duration_max: 0.7
+limits.speed: 5.0
+limits.acceleration: 55.0
+limits.jerk: 600.0
+limits.angular_speed: 18.0
+limits.angular_acceleration: 160.0
+limits.angular_jerk: 1800.0
+pause_probability: 0.10
+hold_when_blocked: false

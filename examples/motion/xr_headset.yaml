@@ -1,0 +1,16 @@
+# Kinematic room-scale walk, look-around and ducking. Not a biomechanical model.
+mode: xr_headset
+seed: 1234
+warmup: 1.0
+step_max: 2.0
+height_min: 1.25
+height_max: 1.9
+limits.speed: 1.6
+limits.acceleration: 4.0
+limits.jerk: 30.0
+limits.angular_speed: 4.0
+limits.angular_acceleration: 18.0
+look_yaw: 1.6580627893946132
+look_pitch: 0.6981317007977318
+look_roll: 0.20943951023931956
+hold_when_blocked: false

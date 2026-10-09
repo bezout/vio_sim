@@ -1,0 +1,30 @@
+# Four-camera example: a forward-facing rectangular rig.
+scene: office
+trajectory: figure8
+difficulty: easy
+duration: 8
+period: 8
+size: 1
+warmup: 1
+ramp: 1
+camera_hz: 50
+imu_hz: 500
+width: 640
+height: 400
+fov_deg: 120
+xi: 0.8
+samples: 2
+threads: 4
+texture_filter: mipmap
+output: output/office_quad_8s
+
+# R_BC maps camera vectors into the body frame; t_BC is expressed in metres.
+camera_count: 4
+cam0_rotation_bc: [1, 0, 0, 0, 0, 1, 0, -1, 0]
+cam0_translation_bc: [-0.04, 0, 0.03]
+cam1_rotation_bc: [1, 0, 0, 0, 0, 1, 0, -1, 0]
+cam1_translation_bc: [0.04, 0, 0.03]
+cam2_rotation_bc: [1, 0, 0, 0, 0, 1, 0, -1, 0]
+cam2_translation_bc: [-0.04, 0, -0.03]
+cam3_rotation_bc: [1, 0, 0, 0, 0, 1, 0, -1, 0]
+cam3_translation_bc: [0.04, 0, -0.03]

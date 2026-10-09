@@ -1,0 +1,12 @@
+# Long-running live source for SLAM endurance tests.
+scene: warehouse
+trajectory: ellipse
+difficulty: medium
+duration: 12000
+period: 18
+size: 2.2
+warmup: 1
+ramp: 1
+samples: 2
+threads: 4
+output: output/warehouse_medium_12000s

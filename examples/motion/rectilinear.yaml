@@ -1,0 +1,15 @@
+# Dedicated MOTION configuration. Recording duration and sampling rates live
+# in the host dataset configuration, not in this file.
+mode: rectilinear
+seed: 1234
+warmup: 1.0
+step_min: 0.5
+step_max: 3.0
+rectilinear_fixed_axis: false
+line_axis: [0, 1, 0]
+align_with_travel: true
+limits.speed: 1.0
+limits.acceleration: 3.0
+limits.jerk: 20.0
+clearance: 0.06
+hold_when_blocked: false

@@ -1,0 +1,12 @@
+# Fixed IMU position. Stereo camera centers still move around the IMU lever arm.
+scene: office
+trajectory: pure_rotation
+difficulty: medium
+duration: 20
+period: 8
+roll_deg: 90
+pitch_deg: 8
+yaw_deg: 20
+samples: 2
+threads: 4
+output: output/roll_stress_20s

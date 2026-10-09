@@ -1,0 +1,17 @@
+# Successive exact outward-facing circular ARCS with varying centers/radii.
+# The chosen reference camera optical center follows each configured circle;
+# IMU lever-arm motion is accounted for analytically. No extrinsics are changed.
+mode: circular
+seed: 1234
+warmup: 1.0
+circle_fixed_center: false
+circle_radius_min: 0.45
+circle_radius_max: 1.4
+circle_angle_min: 1.3962634015954636
+circle_angle_max: 5.061454830783556
+limits.speed: 1.2
+limits.acceleration: 3.0
+limits.angular_speed: 2.0
+# Set optical_axis_body and circle_reference_offset_body FROM the chosen
+# reference camera's CURRENT T_BC, not from a hardcoded baseline.
+hold_when_blocked: false

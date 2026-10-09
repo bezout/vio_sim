@@ -1,0 +1,13 @@
+# Long deterministic rectilinear motion in the warehouse scene.
+scene: warehouse
+trajectory: random_long
+motion_mode: rectilinear
+motion_seed: 1234
+motion_config: motion/rectilinear.yaml
+difficulty: medium
+duration: 120
+camera_hz: 50
+imu_hz: 500
+samples: 2
+threads: 4
+output: output/warehouse_random_long_rectilinear_120s

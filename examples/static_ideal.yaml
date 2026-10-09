@@ -1,0 +1,7 @@
+scene: office
+trajectory: static
+difficulty: ideal
+duration: 10
+samples: 1
+threads: 4
+output: output/static_ideal_10s
