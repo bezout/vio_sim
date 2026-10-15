@@ -14,7 +14,7 @@ struct Config {
     std::string scene="office",trajectory="figure8",difficulty="easy",output="output/sequence",assets;
     std::string camera_model="seucm";
     double alpha=4.0/9.0,beta=1.0;
-    std::string texture_filter="mipmap",format="png",renderer="cpu";
+    std::string texture_filter="mipmap",format="png",renderer="auto";
     std::string motion_mode="scanner",motion_config;
     double motion_time_offset=0, motion_time_scale=1;
     double motion_fixed_distance=0,motion_final_hold=0,motion_move_duration=0;
@@ -43,7 +43,6 @@ struct Config {
     uint64_t motion_seed=1234;
     int64_t start_ns=1700000000000000000LL;
     bool dry_run=false,distance_shading=false;
-    bool renderer_explicit=false;
     bool profile_render=false,gpu_precompute_rays=true;
     bool gpu_postprocess=true;
     int camera_count=0;

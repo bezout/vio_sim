@@ -114,7 +114,7 @@ void set_option(Config& c,const std::string& key,const std::string& v) {
         else { c.initial_accel_bias=bias; c.initial_accel_bias_set=true; }
         return;
     }
-    if(k=="renderer") { c.renderer=v; c.renderer_explicit=true; return; }
+    if(k=="renderer") { c.renderer=v; return; }
     if(k=="seed" || k=="motion_seed" || k=="start_ns") {
         size_t n=0;
         if(v.empty() || v[0]=='-') throw std::invalid_argument("Expected nonnegative integer: "+v);

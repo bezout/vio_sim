@@ -7,8 +7,7 @@
 
 namespace vio {
 namespace {
-Config prepare(Config config,const std::filesystem::path& executable,bool prefer_gpu) {
-    if(prefer_gpu && !config.renderer_explicit) config.renderer="auto";
+Config prepare(Config config,const std::filesystem::path& executable) {
     validate_config(config);
     config.assets=locate_assets(config,executable).string();
     return config;
@@ -57,8 +56,8 @@ TrajectoryStats preflight(const Config& config,const Scene& scene,const Rig& rig
     return stats;
 }
 
-Simulation::Simulation(Config config,const std::filesystem::path& executable,bool prefer_gpu)
-    : config_(prepare(std::move(config),executable,prefer_gpu)),
+Simulation::Simulation(Config config,const std::filesystem::path& executable)
+    : config_(prepare(std::move(config),executable)),
       scene_(make_scene(config_.scene)),rig_(config_),camera_(config_,config_.renderer=="cpu"),textures_(config_.assets,config_.scene=="lab_room"),
       imu_trajectory_(std::make_unique<TrajectoryCursor>(config_,scene_,rig_)),
       camera_trajectory_(std::make_unique<TrajectoryCursor>(config_,scene_,rig_)),

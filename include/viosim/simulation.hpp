@@ -34,7 +34,7 @@ TrajectoryStats preflight(const Config&,const Scene&,const Rig&);
 
 class Simulation {
 public:
-    Simulation(Config config,const std::filesystem::path& executable,bool prefer_gpu=false);
+    Simulation(Config config,const std::filesystem::path& executable);
 
     const Config& config() const { return config_; }
     const Scene& scene() const { return scene_; }

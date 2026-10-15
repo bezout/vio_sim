@@ -57,7 +57,7 @@ Sensors:
   --seed 1234 --start-ns 1700000000000000000
 
 Rendering / export:
-  --renderer cpu|gpu|auto       Offline default: cpu; gpu requires hardware OpenGL 4.3
+  --renderer cpu|gpu|auto       Default: auto (hardware GPU, otherwise CPU); OpenGL 4.3
   --gpu-precompute-rays true|false  Cache camera rays (default true)
   --gpu-postprocess true|false  GPU blur/noise and 8-bit readback (default true)
   --profile-render true|false   Measure GPU and host rendering stages

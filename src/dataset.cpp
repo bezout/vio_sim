@@ -144,7 +144,10 @@ void generate(Config c,const fs::path& executable) {
         return;
     }
     Simulation simulation(c,executable); c=simulation.config();
-    c.renderer=simulation.renderer_backend(); c.renderer_explicit=true;
+    std::cout<<"Renderer: "<<simulation.renderer_backend();
+    if(!simulation.renderer_note().empty()) std::cout<<" ("<<simulation.renderer_note()<<')';
+    std::cout<<'\n';
+    c.renderer=simulation.renderer_backend();
     const auto& camera=simulation.camera(); const auto& scene=simulation.scene(); const auto& rig=simulation.rig();
     const auto& stats=simulation.trajectory_stats();
     std::cout<<std::fixed<<std::setprecision(3)<<"Preflight: "<<n<<" camera groups ("<<rig.size()<<" cameras), "<<stats.distance<<" m traveled, peak "<<stats.max_speed<<" m/s, "<<stats.max_angular_speed<<" rad/s.\n";

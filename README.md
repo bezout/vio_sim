@@ -8,6 +8,14 @@ It generates two or four synchronized grayscale images, a SEUCM or UCM camera
 calibration, noisy and clean IMU streams, ground truth, and dataset metadata.
 The simulator does not depend on any SLAM implementation.
 
+## Renderer selection
+
+The default is `renderer: auto`: use hardware GPU rendering when available,
+otherwise fall back to CPU (including builds without GPU support and inaccessible
+graphics devices). Offline generation reports the selected renderer and fallback
+reason; `config_used.yaml` records the effective backend. Explicit `renderer: cpu`
+still forces CPU, while `renderer: gpu` requires GPU and fails if unavailable.
+
 ## GPU ray cache, postprocessing, and profiling
 
 The GPU computes camera rays once when the renderer starts, using the same
