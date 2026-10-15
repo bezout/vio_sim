@@ -12,5 +12,7 @@ public:
     void finish();
 private:
     std::ofstream poses_;
+    std::ofstream floors_;
+    const Scene* scene_=nullptr;
 };
 }

@@ -130,6 +130,9 @@ int main(int argc,char** argv) {
         Config config; config.scene="lab_room";config.difficulty="ideal";config.duration=20;
         validate_config(config);
         for(const auto& trajectory:trajectory_names()) {
+            // These paths use the dedicated stairs/table scene coordinates and
+            // are checked by test_multilevel, not the lab-room geometry test.
+            if(trajectory=="multilevel_walk" || trajectory=="tables_walk") continue;
             config.trajectory=trajectory;
             preflight(config,scene,Rig(config));
         }

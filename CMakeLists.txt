@@ -69,6 +69,10 @@ install(DIRECTORY assets DESTINATION share/viosim)
 install(DIRECTORY examples DESTINATION share/viosim)
 
 if(BUILD_TESTING)
+  add_executable(test_viosim_multilevel test_multilevel.cpp)
+  target_link_libraries(test_viosim_multilevel PRIVATE viosim_core)
+  add_test(NAME viosim_multilevel COMMAND $<TARGET_FILE:test_viosim_multilevel>)
+  set_tests_properties(viosim_multilevel PROPERTIES LABELS "unit;viosim;geometry")
   add_executable(test_viosim_lab_room test_lab_room.cpp)
   target_link_libraries(test_viosim_lab_room PRIVATE viosim_core)
   add_test(NAME viosim_lab_room COMMAND $<TARGET_FILE:test_viosim_lab_room>

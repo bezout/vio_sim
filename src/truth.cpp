@@ -33,11 +33,17 @@ LiveTruthWriter::LiveTruthWriter(const Simulation& simulation) {
         calibration<<'\n';
     }
     poses_=output(root/"groundtruth.csv");
+    scene_=&simulation.scene();
+    floors_=output(root/"floor_truth.csv");
+    floors_<<"timestamp_us,simulation_ns,floor_z,kind,body_clearance\n";
     poses_<<"timestamp_us,simulation_ns,px,py,pz,qw,qx,qy,qz,vx,vy,vz,bgx,bgy,bgz,bax,bay,baz,wx,wy,wz,ax,ay,az\n";
 }
 void LiveTruthWriter::imu(const ImuSample& sample,int64_t output_timestamp_us) {
     if(!poses_.is_open()) return;
     const auto& state=sample.ideal_state;
+    int kind=0;
+    const double height=scene_->support_height(state.p,kind);
+    floors_<<output_timestamp_us<<','<<sample.timestamp_ns<<','<<height<<','<<kind<<','<<state.p.z-height<<'\n';
     poses_<<output_timestamp_us<<','<<sample.timestamp_ns<<',';
     vector(poses_,state.p);
     for(double q:quaternion(state.R)) poses_<<','<<q;
@@ -47,5 +53,5 @@ void LiveTruthWriter::imu(const ImuSample& sample,int64_t output_timestamp_us) {
     poses_<<',';vector(poses_,state.omega);
     poses_<<',';vector(poses_,state.a);poses_<<'\n';
 }
-void LiveTruthWriter::finish() { if(poses_.is_open()) poses_.close(); }
+void LiveTruthWriter::finish() { if(poses_.is_open()) poses_.close(); if(floors_.is_open()) floors_.close(); }
 }

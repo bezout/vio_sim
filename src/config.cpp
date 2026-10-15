@@ -10,8 +10,8 @@
 #include <stdexcept>
 
 namespace vio {
-const std::vector<std::string>& scene_names() { static const std::vector<std::string> v={"office","office_tag","office_tag_near","corridor","warehouse","lab_room"}; return v; }
-const std::vector<std::string>& trajectory_names() { static const std::vector<std::string> v={"figure8","ellipse","back_and_forth","slow_forward","straight","pure_rotation","static","random_long"}; return v; }
+const std::vector<std::string>& scene_names() { static const std::vector<std::string> v={"office","office_tag","office_tag_near","corridor","warehouse","lab_room","multilevel","multilevel_tables","flat_tables"}; return v; }
+const std::vector<std::string>& trajectory_names() { static const std::vector<std::string> v={"figure8","ellipse","back_and_forth","slow_forward","straight","pure_rotation","static","random_long","multilevel_walk","tables_walk"}; return v; }
 const std::vector<std::string>& preset_names() {
     static const auto names=[] {
         std::vector<std::string> result={"office-controller","office-bias-validation","corridor-10m","warehouse-scanner","lab-room-scanner"};
@@ -190,6 +190,9 @@ void validate_config(Config& c) {
     auto require=[](bool b,const std::string& msg) { if(!b) throw std::invalid_argument(msg); };
     require(std::find(scene_names().begin(),scene_names().end(),c.scene)!=scene_names().end(),"Unknown scene");
     require(std::find(trajectory_names().begin(),trajectory_names().end(),c.trajectory)!=trajectory_names().end(),"Unknown trajectory");
+    if(c.trajectory=="multilevel_walk")
+        require(c.scene=="multilevel" || c.scene=="multilevel_tables","multilevel_walk requires a multilevel scene");
+    if(c.trajectory=="tables_walk") require(c.scene=="flat_tables","tables_walk requires flat_tables");
     if(c.trajectory=="random_long") {
         const std::vector<std::string> motion_modes={"rectilinear","circular","scanner","xr_headset","controller","mower"};
         require(std::find(motion_modes.begin(),motion_modes.end(),c.motion_mode)!=motion_modes.end(),"Unknown motion mode");

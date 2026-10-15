@@ -24,6 +24,27 @@ Scene make_scene(const std::string& name) {
         decal(s.walls[1],2,2.95,0,2.05,DOOR); decal(s.walls[1],4.35,5.2,1.05,1.75,POSTER_LIGHT);
         solid(s.walls[2],-.8,.8,1.2,2.35,215); solid(s.walls[2],-.03,.03,1.2,2.35,100); solid(s.walls[2],-.8,.8,1.745,1.805,100);
         solid(s.walls[3],-1.1,1.1,1,1.8,35); solid(s.walls[3],-1.04,1.04,1.06,1.74,88);
+    } else if(name=="multilevel" || name=="multilevel_tables" || name=="flat_tables") {
+        const bool flat=name=="flat_tables";
+        s.room={{-3,0,0},{3,16,flat?3.2:6.4}}; s.anchor={0,1.6,1.6};
+        if(!flat) {
+            // Twenty 15 cm risers, 30 cm treads, then a 3 m upper landing.
+            for(int i=0;i<20;++i) {
+                Box step{{{-1.5,4+.3*i,0},{1.5,4+.3*(i+1),.15*(i+1)}},FLOOR};
+                step.support_kind=2; s.boxes.push_back(step);
+            }
+            Box landing{{{-3,10,0},{3,16,3}},FLOOR};
+            landing.support_kind=1; s.boxes.push_back(landing);
+        }
+        if(name!="multilevel") {
+            for(double y:{2.2,3.3,11.3,12.6,14.2}) for(double x:{-2.0,2.0}) {
+                const double level=!flat && y>10?3.0:0.0;
+                Box table{{{x-.6,y-.45,level+.65},{x+.6,y+.45,level+.8}},CRATE_A};
+                s.boxes.push_back(table);
+            }
+        }
+        s.walls[0].base=s.walls[1].base=tex(CORRIDOR_WALL,1/2.4,1/1.5);
+        s.walls[2].base=s.walls[3].base=tex(WALL,1/2.2,1/1.5);
     } else if(name=="corridor") {
         s.room={{-2.1,0,0},{2.1,16,3}}; s.anchor={0,4,1.25};
         s.boxes={{{{-1.7,2.2,0},{-1.2,2.7,1.5}},CRATE_A},{{{1.2,5.3,0},{1.7,5.8,1.5}},CRATE_B},{{{-1.7,8.6,0},{-1.2,9.1,1.5}},CRATE_C},{{{1.2,11.8,0},{1.7,12.3,1.5}},CRATE_A}};
@@ -78,6 +99,17 @@ bool Scene::safe(Vec3 p,double margin) const {
     }
     return true;
 }
+double Scene::support_height(Vec3 point,int& kind) const {
+    double height=room.lo.z; kind=1;
+    for(const auto& box:boxes) {
+        if(!box.support_kind || box.bounds.hi.z>point.z) continue;
+        if(point.x>=box.bounds.lo.x && point.x<=box.bounds.hi.x &&
+           point.y>=box.bounds.lo.y && point.y<=box.bounds.hi.y && box.bounds.hi.z>height) {
+            height=box.bounds.hi.z; kind=box.support_kind;
+        }
+    }
+    return height;
+}
 std::array<int,2> Scene::uv_axes(int face) { const int k=face/2; return k==0?std::array<int,2>{1,2}:(k==1?std::array<int,2>{0,2}:std::array<int,2>{0,1}); }
 Material Scene::material(const Hit& h) const {
     const auto axes=uv_axes(h.face); const double u=h.point[axes[0]],v=h.point[axes[1]];
@@ -88,6 +120,10 @@ Material Scene::material(const Hit& h) const {
     }
     const auto& b=boxes[size_t(h.object-1)]; const double us=1/(b.bounds.hi[axes[0]]-b.bounds.lo[axes[0]]),vs=1/(b.bounds.hi[axes[1]]-b.bounds.lo[axes[1]]);
     const int texture=b.face_textures[size_t(h.face)]>=0?b.face_textures[size_t(h.face)]:b.texture;
+    // Walkable tops use isotropic world-space tiles. Stretching a full texture
+    // across a 3 m by 30 cm tread squashes corners into nearly collinear rows.
+    if(h.face==5 && b.support_kind)
+        return tex(texture,1/1.2,1/1.2,0,0,true);
     return tex(texture,us,vs,-b.bounds.lo[axes[0]]*us,-b.bounds.lo[axes[1]]*vs,false);
 }
 } // namespace vio

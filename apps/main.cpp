@@ -18,7 +18,9 @@ Commands:
 Scene / motion:
   --preset NAME                Start from a named VioSim configuration
   --scene office|office_tag|office_tag_near|corridor|warehouse|lab_room
+          multilevel|multilevel_tables|flat_tables
   --trajectory figure8|ellipse|back_and_forth|slow_forward|straight|pure_rotation|static|random_long
+               multilevel_walk|tables_walk
   --motion-mode rectilinear|circular|scanner|xr_headset|controller|mower
   --motion-seed UINT64          Seed independent from sensor/image noise
   --motion-config FILE          Dedicated flat YAML motion configuration

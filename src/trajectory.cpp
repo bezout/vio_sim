@@ -175,6 +175,44 @@ Jet straight_distance(double t,const Config& c) {
     return (Jet(10)*z3-Jet(15)*z4+Jet(6)*z5)*Jet(c.size);
 }
 State state_at(double t,const Config& c,Vec3 anchor) {
+    if(c.trajectory=="multilevel_walk" || c.trajectory=="tables_walk") {
+        struct Node { double time,x,y,z,yaw; };
+        const bool flat=c.trajectory=="tables_walk";
+        const Node nodes[]={{0,0,1.6,1.6,0},{3,-.6,2.5,1.6,-10},
+            {6,.5,3,1.6,10},{9,-.4,2.5,1.6,-8},{12,0,4,1.6,0},
+            {24,0,10,4.6,0},{28,.5,11.6,4.6,8},{32,-.5,13,4.6,-8},
+            {36,.5,14,4.6,10},{40,0,10,4.6,180},{52,0,4,1.6,180},
+            {56,-.5,3,1.6,175},{60,.5,2,1.6,0},{64,-.5,3,1.6,-10},
+            {70,0,1.6,1.6,0}};
+        const double rate=70/c.period,clock=std::max(0.0,(t-c.warmup)*rate);
+        size_t index=0;
+        while(index+1<std::size(nodes) && clock>nodes[index+1].time) ++index;
+        const auto& a=nodes[index]; const auto& b=nodes[std::min(index+1,std::size(nodes)-1)];
+        Jet blend;
+        if(b.time>a.time && t>c.warmup && clock<b.time) {
+            const Jet u((clock-a.time)/(b.time-a.time),rate/(b.time-a.time));
+            const Jet u2=u*u,u3=u2*u,u4=u3*u,u5=u4*u;
+            blend=Jet(10)*u3-Jet(15)*u4+Jet(6)*u5;
+        } else if(clock>=b.time) blend=Jet(1);
+        const Jet x=Jet(a.x)+Jet(b.x-a.x)*blend,y=Jet(a.y)+Jet(b.y-a.y)*blend;
+        Jet z=flat?Jet(1.6):Jet(a.z)+Jet(b.z-a.z)*blend;
+        // A crouch-and-return on a flat floor is a negative level-change control.
+        if(flat && clock>16 && clock<22) {
+            const Jet phase((clock-16)*pi/6,rate*pi/6);
+            const Jet pulse=sin(phase)*sin(phase);
+            z=z-Jet(.55)*pulse*pulse;
+        }
+        const Jet yaw=Jet(radians(a.yaw))+Jet(radians(b.yaw-a.yaw))*blend;
+        // Look down at the floor / treads; rotation derivatives feed the IMU.
+        const Jet roll=Jet(radians(-18))+Jet(radians(3))*sin(blend*Jet(2*pi));
+        const Jet pitch=Jet(radians(2))*sin(blend*Jet(2*pi));
+        const Mat3 Rz=rz(-yaw.v),Rx=rx(roll.v),Ry=ry(pitch.v);
+        State state; state.p={x.v,y.v,z.v}; state.v={x.d,y.d,z.d}; state.a={x.dd,y.dd,z.dd};
+        state.R=Rz*Rx*Ry;
+        state.omega=Ry.transpose()*(Rx.transpose()*Vec3{0,0,-yaw.d})
+            +Ry.transpose()*Vec3{roll.d,0,0}+Vec3{0,pitch.d,0};
+        return state;
+    }
     const Jet phase=motion_clock(t,c)*Jet(2*pi/c.period);
     const double scale=c.size;
     Jet x,y,z;

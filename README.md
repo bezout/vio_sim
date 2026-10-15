@@ -337,3 +337,38 @@ calibration. `motion_time_scale` also scales the initial static interval;
 the primitive tape remains in generator time, with the offset/scale recorded
 in `config_used.yaml`. The benchmark presets use 9.80665 m/s² to avoid confusing
 a gravity-reference discrepancy with an estimated accelerometer bias.
+
+## Multiple floors and a crouching control
+
+`multilevel` contains twenty 15 cm risers with 30 cm treads and a landing
+3 m above the lower floor. `multilevel_tables` adds ten 80 cm high tabletops;
+`flat_tables` retains the tables on a single floor. Stair/landing tops use
+isotropic world-space texture coordinates rather than stretching one texture
+across each narrow tread.
+
+Use `multilevel_walk` for the two-level scenes and `tables_walk` for the flat
+control. These deterministic trajectories require warmup 2 s, period 70 s,
+and duration 72 s. The multilevel path climbs at 14–26 s, visits the upper
+landing, descends at 42–54 s, then revisits the lower floor. The flat path
+instead crouches by 55 cm at 18–24 s. Both include lateral viewpoint diversity.
+Analytic velocity, acceleration and angular rate remain consistent with the
+rendered body pose; the regression test also checks physical rig clearance.
+
+With the built `viosim` executable on PATH, from the VioSim source directory:
+
+```bash
+viosim generate --config examples/multilevel_tables.yaml \
+  --output /tmp/viosim_multilevel_offline
+```
+
+For FastSLAM's live simulator adapter, add `truth_output: /tmp/new-empty-truth`
+to a copy of the configuration. The live truth writer exports `floor_truth.csv`
+alongside `groundtruth.csv`: actual device-clock `timestamp_us`, simulation-clock
+`simulation_ns`, physical `floor_z`, `kind` (1 floor/landing, 2 tread), and body
+clearance. Both clocks include their configured origin. Scene annotations exclude
+tables from this evaluation truth. The detector receives camera images, IMU and
+calibration, never these annotations or truth files.
+
+The scenes are deterministic, static and synthetic. The supplied example uses
+ideal sensor noise; it does not model people, movable furniture, stair nosings,
+handrails, lighting changes or photorealistic appearance.

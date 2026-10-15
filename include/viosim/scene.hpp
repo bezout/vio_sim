@@ -13,6 +13,8 @@ struct Surface { Material base; std::vector<Decal> decals; };
 struct Box {
     AABB bounds; int texture;
     std::array<int,6> face_textures{{-1,-1,-1,-1,-1,-1}};
+    // Scene annotation for truth and top-face tiling; never sent to SLAM.
+    int support_kind=0; // 0 obstacle, 1 floor/landing, 2 stair tread
 };
 struct Hit { double distance=std::numeric_limits<double>::infinity(); int object=-1,face=-1; Vec3 point; };
 struct Scene {
@@ -22,6 +24,7 @@ struct Scene {
     bool safe(Vec3 point,double margin) const;
     Hit trace(Vec3 origin,Vec3 ray) const;
     Material material(const Hit&) const;
+    double support_height(Vec3 point,int& kind) const;
     static std::array<int,2> uv_axes(int face);
 };
 Scene make_scene(const std::string&);
