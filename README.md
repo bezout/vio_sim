@@ -338,6 +338,16 @@ the primitive tape remains in generator time, with the offset/scale recorded
 in `config_used.yaml`. The benchmark presets use 9.80665 m/s² to avoid confusing
 a gravity-reference discrepancy with an estimated accelerometer bias.
 
+## Known-view and new-view recovery
+
+`test-camera-blackout-known` repeats an already observed view after cameras are
+black from 12 to 14 s. `test-camera-blackout-new` follows the same initial motion
+but turns 180 degrees during the blackout, exposing previously unseen surfaces.
+Both last 24 s with ideal sensors; IMU sampling continues during image blackout.
+The `viosim_recovery` test checks prior visibility by projecting and ray-tracing
+sampled world points, including occlusion, in both stereo cameras. These are
+controlled visual-loss cases; they do not guarantee recovery by any SLAM system.
+
 ## Multiple floors and a crouching control
 
 `multilevel` contains twenty 15 cm risers with 30 cm treads and a landing

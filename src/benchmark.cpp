@@ -62,6 +62,16 @@ const std::vector<BenchmarkPreset>& benchmark_presets() {
         add("test-map-budget","map","Long trajectory with a 50-keyframe budget versus unlimited map",c);
         c=base;c.duration=40;c.blackout_start=12;c.blackout_duration=2;
         add("test-camera-blackout","relocalization","All cameras black from 12 to 14 s; IMU continues; measure tracking recovery",c);
+        // The first full loop is visible before the blackout. The known case
+        // returns to an already observed view; the new case turns toward the
+        // previously unseen rear half of the room while all cameras are black.
+        c=base;c.trajectory="figure8";c.duration=24;c.period=8;c.size=.35;
+        c.camera_hz=30;c.roll_deg=c.pitch_deg=c.yaw_deg=0;
+        c.blackout_start=12;c.blackout_duration=2;
+        c.yaw_turn_start=12;c.yaw_turn_duration=2;
+        add("test-camera-blackout-known","relocalization","Blackout 12-14 s; return to an already observed view on a repeated loop",c);
+        c.yaw_turn_deg=180;
+        add("test-camera-blackout-new","relocalization","Blackout 12-14 s with a half-turn; recover on previously unseen landmarks",c);
         c=base;c.imu_hz=1000;
         add("test-imu-1000hz","throughput","50 Hz stereo and 1000 Hz IMU; compare reference and scheduler drops",c);
         c=base;c.imu_hz=1000;c.camera_count=4;
