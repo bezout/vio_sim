@@ -80,6 +80,15 @@ inline Jet operator-(Jet a) { return {-a.v,-a.d,-a.dd}; }
 inline Jet operator*(Jet a,Jet b) { return {a.v*b.v,a.d*b.v+a.v*b.d,a.dd*b.v+2*a.d*b.d+a.v*b.dd}; }
 inline Jet sin(Jet a) { return {std::sin(a.v),std::cos(a.v)*a.d,std::cos(a.v)*a.dd-std::sin(a.v)*a.d*a.d}; }
 inline Jet cos(Jet a) { return {std::cos(a.v),-std::sin(a.v)*a.d,-std::sin(a.v)*a.dd-std::cos(a.v)*a.d*a.d}; }
+inline Jet sqrt(Jet a) {
+    const double v=std::sqrt(a.v),d=a.d/(2*v);
+    return {v,d,a.dd/(2*v)-d*d/v};
+}
+inline Jet atan2(Jet y,Jet x) {
+    const double r2=x.v*x.v+y.v*y.v,n=x.v*y.d-y.v*x.d;
+    return {std::atan2(y.v,x.v),n/r2,
+            (x.v*y.dd-y.v*x.dd)/r2-n*2*(x.v*x.d+y.v*y.d)/(r2*r2)};
+}
 // Per-stream PRNG and explicitly specified Box-Muller transform. No shared RNG.
 inline uint64_t mix_seed(uint64_t z) {
     z=(z^(z>>30))*0xbf58476d1ce4e5b9ULL; z=(z^(z>>27))*0x94d049bb133111ebULL; return z^(z>>31);

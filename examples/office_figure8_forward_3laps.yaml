@@ -1,4 +1,4 @@
-# Three complete planar eights; camera 0 looks along the motion tangent.
+# Three near-planar eights; camera 0 follows the 3D motion tangent.
 # motion_clock = t - warmup - ramp/2 after the smooth startup.
 # End time = 1 + 1/2 + 3*12 = 37.5 s (endpoint included).
 scene: office
@@ -8,6 +8,8 @@ gravity: 9.80665
 duration: 37.500001
 period: 12
 size: 1
+figure8_height: 0.06
+roll_deg: 4
 speed_scale: 1
 warmup: 1
 ramp: 1

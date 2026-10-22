@@ -20,8 +20,15 @@ int main(int argc,char** argv) {
                 throw std::runtime_error("Not three complete laps");
             if(vio::norm(vio::state_at(end,c,scene.anchor).p-scene.anchor)>1e-10)
                 throw std::runtime_error("Eight did not close");
+            const auto point=[&](double phase) {
+                return vio::state_at(c.warmup+.5*c.ramp+phase*c.period/(2*vio::pi*c.speed_scale),c,scene.anchor).p-scene.anchor;
+            };
+            if(c.figure8_height>0 && std::abs(vio::dot(vio::cross(point(vio::pi/6),point(5*vio::pi/6)),point(vio::pi/2)))<1e-4)
+                throw std::runtime_error("Eight is still contained in a tilted plane");
             for(double t=0;t<end;t+=.007) {
                 const auto s=vio::state_at(t,c,scene.anchor);
+                if(std::abs(s.p.z-scene.anchor.z)>c.figure8_height*c.size+1e-12)
+                    throw std::runtime_error("Height excursion exceeds the configured handheld envelope");
                 const auto forward=s.R*rig.BC[c.motion_reference_camera].R*vio::Vec3{0,0,1};
                 if(vio::norm(s.v)>1e-10 && vio::dot(vio::normalized(forward),vio::normalized(s.v))<1-1e-12)
                     throw std::runtime_error("Camera is not looking along the velocity");

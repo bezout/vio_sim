@@ -171,10 +171,16 @@ after `warmup` seconds stationary and before at least `cooldown` seconds
 stationary. Use `viosim --help`, `viosim list-scenes`, and
 `viosim list-trajectories` for the complete option list.
 
-`figure8_forward` is a planar eight with `motion_reference_camera` (default 0)
-looking along the motion tangent, including during smooth startup. The IMU
-attitude and angular velocity follow the selected camera's calibrated extrinsics. It determines
-attitude from the path instead of using the yaw/roll/pitch sweep options.
+`figure8` and `figure8_forward` are near-planar eights with a third-harmonic
+height oscillation: `figure8_height: 0.06` gives +/-6 cm at `size: 1`.
+This height is independent of the two horizontal harmonics, so the path is not
+contained in a tilted plane. Set `figure8_height: 0` for a planar control.
+`figure8_forward` has `motion_reference_camera` (default 0)
+looking along the full 3D motion tangent, including during smooth startup. The IMU
+attitude and angular velocity follow the selected camera's calibrated extrinsics.
+Pitch follows the vertical tangent; `roll_deg` adds a small optical roll
+(default +/-4 degrees) without changing the forward direction. For this mode,
+the independent `yaw_deg` and `pitch_deg` sweep options are unused.
 `examples/office_figure8_forward_3laps.yaml` runs three complete laps in
 37.5 seconds, including the initial stationary second and startup ramp.
 This example uses the camera-to-IMU rotations and translations from the
@@ -346,6 +352,8 @@ motion_time_scale: 1                   # random_long: v scales by s, a by s²
 truth_output: /tmp/run-truth           # optional LIVE export; empty/new directory
 reported_focal_scale: 1.03             # LIVE device calibration only; physical fx/fy unchanged
 reported_baseline_scale: 1             # LIVE device translations only; physical rig unchanged
+reported_u0_offset: 5                  # LIVE principal point shift in pixels, all cameras
+reported_v0_offset: -5                 # SEUCM eu/ev remain unchanged
 blackout_start: 12                     # camera images become black; IMU is unaffected
 blackout_duration: 2                   # seconds; zero disables the blackout
 ```

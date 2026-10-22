@@ -101,8 +101,9 @@ void set_option(Config& c,const std::string& key,const std::string& v) {
 #define D(x) if(k==#x) { c.x=number(v); return; }
 #define I(x) if(k==#x) { c.x=integer(v); return; }
     S(truth_output) S(camera_model) S(imu_frame) S(scene) S(trajectory) S(difficulty) S(output) S(assets) S(texture_filter) S(format) S(motion_mode) S(motion_config)
-    D(blackout_start) D(blackout_duration) D(gravity) D(reported_focal_scale) D(reported_baseline_scale) D(motion_time_offset) D(motion_time_scale) D(duration) D(period) D(size) D(speed_scale) D(warmup) D(ramp) D(cooldown) D(roll_deg) D(pitch_deg) D(yaw_deg) D(yaw_offset_deg) D(yaw_turn_start) D(yaw_turn_duration) D(yaw_turn_deg) D(motion_fixed_distance) D(motion_final_hold) D(motion_move_duration)
+    D(blackout_start) D(blackout_duration) D(gravity) D(reported_focal_scale) D(reported_baseline_scale) D(reported_u0_offset) D(reported_v0_offset) D(motion_time_offset) D(motion_time_scale) D(duration) D(period) D(size) D(speed_scale) D(warmup) D(ramp) D(cooldown) D(roll_deg) D(pitch_deg) D(yaw_deg) D(yaw_offset_deg) D(yaw_turn_start) D(yaw_turn_duration) D(yaw_turn_deg) D(motion_fixed_distance) D(motion_final_hold) D(motion_move_duration)
     D(alpha) D(beta) D(camera_hz) D(imu_hz) D(baseline) D(fov_deg) D(xi) D(right_yaw_deg) D(right_roll_deg) D(clearance)
+    D(figure8_height)
     D(image_noise) D(extra_blur) D(brightness) D(contrast) D(gyro_noise_density) D(accel_noise_density) D(gyro_bias_rw) D(accel_bias_rw) D(sensor_blur) D(lab_vignette)
     I(width) I(height) I(threads) I(samples) I(png_compression) I(preview_count) I(depth_every) I(motion_reference_camera)
 #undef S
@@ -225,10 +226,12 @@ void validate_config(Config& c) {
             "motion_time_offset/scale require random_long");
     require(c.reported_focal_scale>0.5 && c.reported_focal_scale<2 &&
             c.reported_baseline_scale>0.5 && c.reported_baseline_scale<2,"Invalid reported calibration scale");
+    require(std::isfinite(c.reported_u0_offset) && std::isfinite(c.reported_v0_offset),"Reported principal point offsets must be finite");
     for(double v:c.initial_gyro_bias) require(std::isfinite(v),"Invalid gyro bias");
     for(double v:c.initial_accel_bias) require(std::isfinite(v),"Invalid accel bias");
     require(c.duration>0 && c.duration<=86400,"duration must be in (0, 86400] seconds");
     require(c.period>0 && c.period<=86400 && c.size>=0 && c.size<=1000 && c.speed_scale>0 && c.speed_scale<=100,"Invalid period, size, or speed scale");
+    require(std::isfinite(c.figure8_height) && c.figure8_height>=0 && c.figure8_height<=1,"figure8_height must be in [0,1] metres at size=1");
     require(c.warmup>=0 && c.ramp>0 && c.cooldown>=0 && c.warmup<=86400 && c.ramp<=86400 && c.cooldown<=86400,"warmup and cooldown must be nonnegative; ramp must be positive");
     require(std::isfinite(c.yaw_turn_start) && c.yaw_turn_start>=0 &&
             std::isfinite(c.yaw_turn_duration) && c.yaw_turn_duration>=0 &&
@@ -279,9 +282,10 @@ std::string dump_config(const Config& c) {
 #define X(x) s<<#x<<": "<<c.x<<'\n';
 #define S(x) s<<#x<<": '"<<c.x<<"'\n";
     S(truth_output) S(camera_model) S(imu_frame) S(scene) S(trajectory) S(difficulty) S(output) S(assets) S(texture_filter) S(format) S(renderer) S(motion_mode) S(motion_config)
-    X(blackout_start) X(blackout_duration) X(gravity) X(reported_focal_scale) X(reported_baseline_scale) X(motion_time_offset) X(motion_time_scale) X(duration) X(period) X(size) X(speed_scale) X(warmup) X(ramp) X(cooldown) X(roll_deg) X(yaw_deg) X(yaw_offset_deg) X(yaw_turn_start) X(yaw_turn_duration) X(yaw_turn_deg) X(motion_fixed_distance) X(motion_final_hold) X(motion_move_duration)
+    X(blackout_start) X(blackout_duration) X(gravity) X(reported_focal_scale) X(reported_baseline_scale) X(reported_u0_offset) X(reported_v0_offset) X(motion_time_offset) X(motion_time_scale) X(duration) X(period) X(size) X(speed_scale) X(warmup) X(ramp) X(cooldown) X(roll_deg) X(yaw_deg) X(yaw_offset_deg) X(yaw_turn_start) X(yaw_turn_duration) X(yaw_turn_deg) X(motion_fixed_distance) X(motion_final_hold) X(motion_move_duration)
     X(profile_render) X(gpu_precompute_rays) X(gpu_postprocess)
     X(alpha) X(beta) X(width) X(height) X(camera_hz) X(imu_hz) X(baseline) X(xi) X(fov_deg) X(right_yaw_deg) X(right_roll_deg) X(clearance)
+    X(figure8_height)
     X(image_noise) X(extra_blur) X(sensor_blur) X(brightness) X(contrast) X(gyro_noise_density) X(accel_noise_density) X(gyro_bias_rw) X(accel_bias_rw) X(lab_vignette)
     X(threads) X(samples) X(png_compression) X(preview_count) X(depth_every) X(seed) X(motion_seed) X(motion_reference_camera) X(start_ns)
 #undef X

@@ -51,10 +51,12 @@ Sensors:
   --initial-gyro-bias [x,y,z] --initial-accel-bias [x,y,z]
   --gravity VALUE              Magnitude in m/s² (default 9.81)
   --imu-frame camera|legacy_z_up  IMU axes: camera-aligned by default; legacy Z-up opt-in
+  --figure8-height METRES       Vertical amplitude at size=1 (default .06); 0 for planar eights
   --motion-time-offset SECONDS --motion-time-scale FACTOR (random_long)
   --blackout-start SECONDS --blackout-duration SECONDS
   --truth-output DIRECTORY     Live device ground truth export (no images)
   --reported-focal-scale FACTOR --reported-baseline-scale FACTOR (live only)
+  --reported-u0-offset PIXELS --reported-v0-offset PIXELS (live only)
   --lab-reflections true|false  Approximate floor highlights (lab_room only)
   --lab-vignette 0..0.95        Smooth radial attenuation (lab_room only)
   --seed 1234 --start-ns 1700000000000000000

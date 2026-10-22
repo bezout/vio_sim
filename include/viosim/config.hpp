@@ -22,6 +22,7 @@ struct Config {
     double motion_time_offset=0, motion_time_scale=1;
     double motion_fixed_distance=0,motion_final_hold=0,motion_move_duration=0;
     double duration=8,period=8,size=1,speed_scale=1,warmup=1,ramp=1,cooldown=0;
+    double figure8_height=.06;
     double roll_deg=4,pitch_deg=2.5,yaw_deg=18,yaw_offset_deg=0;
     double yaw_turn_start=0,yaw_turn_duration=0,yaw_turn_deg=0;
     double camera_hz=50,imu_hz=500,baseline=.08,fov_deg=120,xi=.8;
@@ -36,6 +37,7 @@ struct Config {
     // what the device reports to SLAM, never the physical rendering rig.
     std::string truth_output;
     double reported_focal_scale=1,reported_baseline_scale=1;
+    double reported_u0_offset=0,reported_v0_offset=0; // pixels, all cameras
     double blackout_start=0,blackout_duration=0;
     double sensor_blur=.45;
     bool lab_reflections=true;
