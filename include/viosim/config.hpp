@@ -13,6 +13,9 @@ struct CameraExtrinsic {
 struct Config {
     std::string scene="office",trajectory="figure8",difficulty="easy",output="output/sequence",assets;
     std::string camera_model="seucm";
+    // Default IMU axes match camera 0: X right, Y down, Z forward.
+    // legacy_z_up retains the original X right, Y forward, Z up body frame.
+    std::string imu_frame="camera";
     double alpha=4.0/9.0,beta=1.0;
     std::string texture_filter="mipmap",format="png",renderer="auto";
     std::string motion_mode="scanner",motion_config;

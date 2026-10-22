@@ -160,7 +160,7 @@ int main(int argc,char** argv) {
             if(strength==0) check(gain==1,"Zero vignette identity");
         }
 
-        const Pose pose=Rig(config).camera_pose({0,1.1,1.65},rx(radians(-17)),0);
+        const Pose pose=Rig(config).camera_pose({0,1.1,1.65},rx(radians(-17))*imu_basis_rotation(config),0);
         config.lab_vignette=0;config.lab_reflections=false;
         const Image8 diffuse=render(camera,scene,textures,pose,config,1234);
         config.lab_reflections=true;
@@ -176,7 +176,7 @@ int main(int argc,char** argv) {
         check(changed_floor>0,"Floor highlights must be visible");
 
         const Scene office=make_scene("office");
-        const Pose office_pose=Rig(config).camera_pose(office.anchor,Mat3{},0);
+        const Pose office_pose=Rig(config).camera_pose(office.anchor,imu_basis_rotation(config),0);
         config.lab_reflections=false;config.lab_vignette=0;
         const Image8 office_before=render(camera,office,textures,office_pose,config,1234);
         config.lab_reflections=true;config.lab_vignette=.95;

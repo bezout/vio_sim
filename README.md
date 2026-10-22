@@ -165,11 +165,20 @@ renders four. `--threads` parallelizes camera groups. Existing nonempty output
 directories are refused and are never deleted by VioSim.
 
 The supported scenes are `office`, `office_tag`, `office_tag_near`, `corridor`, `warehouse`, and `lab_room`. The trajectories
-are `figure8`, `ellipse`, `back_and_forth`, `slow_forward`, `straight`, `pure_rotation`, and
+are `figure8`, `figure8_forward`, `ellipse`, `back_and_forth`, `slow_forward`, `straight`, `pure_rotation`, and
 `static`, plus the streaming `random_long` family. `straight` travels forward by `size` metres during `period` seconds,
 after `warmup` seconds stationary and before at least `cooldown` seconds
 stationary. Use `viosim --help`, `viosim list-scenes`, and
 `viosim list-trajectories` for the complete option list.
+
+`figure8_forward` is a planar eight with `motion_reference_camera` (default 0)
+looking along the motion tangent, including during smooth startup. The IMU
+attitude and angular velocity follow the selected camera's calibrated extrinsics. It determines
+attitude from the path instead of using the yaw/roll/pitch sweep options.
+`examples/office_figure8_forward_3laps.yaml` runs three complete laps in
+37.5 seconds, including the initial stationary second and startup ramp.
+This example uses the camera-to-IMU rotations and translations from the
+`v5/maps1` dataset, with optical axes near IMU +Z and camera up near IMU -Y.
 
 For legacy trajectories, `yaw_turn_start`, `yaw_turn_duration`, and
 `yaw_turn_deg` apply one smooth extra heading turn. The angle and angular
@@ -253,14 +262,27 @@ same CPU renderer used by dataset generation:
 
 ## Camera rigs
 
-Without `camera_count`, VioSim preserves its original stereo rig configured by
-`baseline`, `right_yaw_deg`, and `right_roll_deg`. An explicit rig contains
+By default, `imu_frame: camera` uses IMU axes aligned with the first fisheye:
+**X right, Y down, Z forward**. The standard stereo rig has `R_BC0 = I`;
+`baseline`, `right_yaw_deg`, and `right_roll_deg` configure its geometry.
+At rest with an upright forward camera, specific force is along IMU **-Y**.
+The world frame remains Z-up. Camera views and world trajectories retain their
+orientation; body rotations, gyroscopes and accelerometers use the IMU axes.
+
+Use `imu_frame: legacy_z_up` explicitly for scenarios requiring the original
+IMU axes (X right, Y forward, Z up; specific force along +Z at rest).
+This option is included in exported configurations. Explicit camera extrinsics
+are always used as supplied; they are never silently rotated or recentered.
+For `random_long`, explicit motion-file body axes and initial rotations remain
+available with `motion_reference_camera: -1`.
+
+An explicit rig contains
 exactly two or four cameras:
 
 ```yaml
 camera_count: 4
-cam0_rotation_bc: [1, 0, 0, 0, 0, 1, 0, -1, 0]
-cam0_translation_bc: [-0.04, 0, 0.03]
+cam0_rotation_bc: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+cam0_translation_bc: [-0.04, -0.03, 0]
 # ... cam1 through cam3 ...
 ```
 
@@ -370,6 +392,16 @@ With the built `viosim` executable on PATH, from the VioSim source directory:
 viosim generate --config examples/multilevel_tables.yaml \
   --output /tmp/viosim_multilevel_offline
 ```
+
+With FastSLAM `slam-gui`, combining `--viosim` (or `--viosim-preset`) and
+`--optitrack PATH_TO_EVALUATE_OPTITRACK` automatically exports
+`viosim_groundtruth.csv` in `--log`, or in the current directory without `--log`.
+It contains ideal IMU poses as `timestamp,x,y,z,qx,qy,qz,qw`, with timestamps in
+seconds on the published device clock and positions in metres. The evaluator
+runs after replay and writes `optitrack_result.txt` in the same directory.
+Synchronization and sensor-extrinsic fitting are disabled for simulated truth;
+the evaluator still aligns the SLAM world frame with the reference world frame.
+No `truth_output` setting or generated image dataset is needed.
 
 For FastSLAM's live simulator adapter, add `truth_output: /tmp/new-empty-truth`
 to a copy of the configuration. The live truth writer exports `floor_truth.csv`

@@ -1,0 +1,32 @@
+# Three complete planar eights; camera 0 looks along the motion tangent.
+# motion_clock = t - warmup - ramp/2 after the smooth startup.
+# End time = 1 + 1/2 + 3*12 = 37.5 s (endpoint included).
+scene: office
+trajectory: figure8_forward
+difficulty: ideal
+gravity: 9.80665
+duration: 37.500001
+period: 12
+size: 1
+speed_scale: 1
+warmup: 1
+ramp: 1
+camera_hz: 50
+imu_hz: 500
+width: 640
+height: 400
+# Camera-to-IMU extrinsics copied from:
+# /media/datta/T7/datasets/v5/maps1/calib_fisheyes.txt
+# Optical axes are near IMU +Z; camera up is near IMU -Y.
+camera_count: 2
+motion_reference_camera: 0
+cam0_rotation_bc: [0.9999277592, -0.01185554173, 0.001966553275, 0.01182883978, 0.9998445511, 0.01307500247, -0.00212125876, -0.01305079553, 0.99991256]
+cam0_translation_bc: [-0.004907589406, 0.0002027286828, 0.01063816249]
+cam1_rotation_bc: [0.9999617338, 0.007969670929, -0.003610919928, -0.007930548862, 0.9999110699, 0.0107219927, 0.003696049564, -0.01069294568, 0.9999359846]
+cam1_translation_bc: [0.07515446097, 0.0004869420663, 0.01088169124]
+fov_deg: 120
+samples: 2
+threads: 4
+texture_filter: mipmap
+depth_every: 0
+output: output/office_figure8_forward_3laps

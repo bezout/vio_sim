@@ -13,7 +13,11 @@ std::ofstream output(const std::filesystem::path& path) {
 }
 void vector(std::ostream& out,Vec3 v) { out<<v.x<<','<<v.y<<','<<v.z; }
 }
-LiveTruthWriter::LiveTruthWriter(const Simulation& simulation) {
+LiveTruthWriter::LiveTruthWriter(const Simulation& simulation,const std::string& optitrack_path) {
+    if(!optitrack_path.empty()) {
+        optitrack_=output(optitrack_path);
+        optitrack_<<"timestamp,x,y,z,qx,qy,qz,qw\n";
+    }
     const auto& c=simulation.config();
     if(c.truth_output.empty()) return;
     const std::filesystem::path root=c.truth_output;
@@ -39,6 +43,13 @@ LiveTruthWriter::LiveTruthWriter(const Simulation& simulation) {
     poses_<<"timestamp_us,simulation_ns,px,py,pz,qw,qx,qy,qz,vx,vy,vz,bgx,bgy,bgz,bax,bay,baz,wx,wy,wz,ax,ay,az\n";
 }
 void LiveTruthWriter::imu(const ImuSample& sample,int64_t output_timestamp_us) {
+    if(optitrack_.is_open()) {
+        const auto& state=sample.ideal_state;
+        const auto q=quaternion(state.R);
+        optitrack_<<double(output_timestamp_us)*1e-6<<',';
+        vector(optitrack_,state.p);
+        optitrack_<<','<<q[1]<<','<<q[2]<<','<<q[3]<<','<<q[0]<<'\n';
+    }
     if(!poses_.is_open()) return;
     const auto& state=sample.ideal_state;
     int kind=0;
@@ -53,5 +64,9 @@ void LiveTruthWriter::imu(const ImuSample& sample,int64_t output_timestamp_us) {
     poses_<<',';vector(poses_,state.omega);
     poses_<<',';vector(poses_,state.a);poses_<<'\n';
 }
-void LiveTruthWriter::finish() { if(poses_.is_open()) poses_.close(); if(floors_.is_open()) floors_.close(); }
+void LiveTruthWriter::finish() {
+    if(poses_.is_open()) poses_.close();
+    if(floors_.is_open()) floors_.close();
+    if(optitrack_.is_open()) optitrack_.close();
+}
 }

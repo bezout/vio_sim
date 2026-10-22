@@ -7,12 +7,13 @@ namespace vio {
 // no second simulation: the samples include the actual injected random walk.
 class LiveTruthWriter {
 public:
-    explicit LiveTruthWriter(const Simulation&);
+    explicit LiveTruthWriter(const Simulation&,const std::string& optitrack_path={});
     void imu(const ImuSample&,int64_t output_timestamp_us);
     void finish();
 private:
     std::ofstream poses_;
     std::ofstream floors_;
+    std::ofstream optitrack_;
     const Scene* scene_=nullptr;
 };
 }

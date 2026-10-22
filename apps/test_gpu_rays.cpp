@@ -26,7 +26,7 @@ int main(int argc,char** argv) {
                 for(int step=0;step<3;++step) {
                     std::vector<Pose> poses;
                     for(int k=0;k<4;++k)
-                        poses.push_back(rig.camera_pose(scene.anchor+Vec3{.03*step,.06*step,0},rz(.1*k),k%2));
+                        poses.push_back(rig.camera_pose(scene.anchor+Vec3{.03*step,.06*step,0},rz(.1*k)*imu_basis_rotation(config),k%2));
                     const std::vector<uint64_t> seeds{1,2,3,4};
                     const auto a=reference.render(poses,seeds),b=cached.render(poses,seeds);
                     for(size_t k=0;k<a.size();++k) {
@@ -44,7 +44,7 @@ int main(int argc,char** argv) {
             config.gpu_postprocess=false;const GpuRenderer cpu(camera,scene,textures,config);
             config.gpu_postprocess=true;const GpuRenderer gpu(camera,scene,textures,config);
             std::vector<Pose> poses;
-            for(int k=0;k<4;++k) poses.push_back(rig.camera_pose(scene.anchor,rz(.1*k),k%2));
+            for(int k=0;k<4;++k) poses.push_back(rig.camera_pose(scene.anchor,rz(.1*k)*imu_basis_rotation(config),k%2));
             const std::vector<uint64_t> seeds{0,1234,0xffffffffffffffffULL,0x12345678abcdef01ULL};
             const auto a=cpu.render(poses,seeds),b=gpu.render(poses,seeds),repeat=gpu.render(poses,seeds);
             size_t different=0,pixels=0;int maximum=0;

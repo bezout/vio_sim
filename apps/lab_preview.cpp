@@ -31,7 +31,7 @@ int main(int argc,char** argv) {
         poses<<std::setprecision(17)<<"view,camera,px,py,pz,qw,qx,qy,qz\n";
         Image8 montage{camera.width*2,camera.height*3,std::vector<uint8_t>(size_t(camera.width)*2*camera.height*3)};
         for(size_t view=0;view<positions.size();++view) {
-            const Mat3 body_rotation=rz(radians(-yaws[view]))*rx(radians(-17));
+            const Mat3 body_rotation=rz(radians(-yaws[view]))*rx(radians(-17))*imu_basis_rotation(config);
             for(int camera_index=0;camera_index<2;++camera_index) {
                 const Pose pose=rig.camera_pose(positions[view],body_rotation,size_t(camera_index));
                 if(!scene.safe(pose.p,.10)) throw std::runtime_error("Unsafe inspection viewpoint");

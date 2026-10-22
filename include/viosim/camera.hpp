@@ -20,6 +20,10 @@ struct Camera {
     std::array<double,2> project(Vec3 p) const;
 };
 struct Pose { Vec3 p; Mat3 R; };
+// Maps configured IMU axes into the original Z-up trajectory body frame.
+inline Mat3 imu_basis_rotation(const Config& c) {
+    return c.imu_frame=="camera" ? Mat3{{1,0,0,0,0,1,0,-1,0}} : Mat3{};
+}
 struct Rig {
     std::vector<Pose> BC;
     explicit Rig(const Config&);

@@ -11,7 +11,7 @@
 
 namespace vio {
 const std::vector<std::string>& scene_names() { static const std::vector<std::string> v={"office","office_tag","office_tag_near","corridor","warehouse","lab_room","multilevel","multilevel_tables","flat_tables"}; return v; }
-const std::vector<std::string>& trajectory_names() { static const std::vector<std::string> v={"figure8","ellipse","back_and_forth","slow_forward","straight","pure_rotation","static","random_long","multilevel_walk","tables_walk"}; return v; }
+const std::vector<std::string>& trajectory_names() { static const std::vector<std::string> v={"figure8","figure8_forward","ellipse","back_and_forth","slow_forward","straight","pure_rotation","static","random_long","multilevel_walk","tables_walk"}; return v; }
 const std::vector<std::string>& preset_names() {
     static const auto names=[] {
         std::vector<std::string> result={"office-controller","office-bias-validation","corridor-10m","warehouse-scanner","lab-room-scanner"};
@@ -100,7 +100,7 @@ void set_option(Config& c,const std::string& key,const std::string& v) {
 #define S(x) if(k==#x) { c.x=v; return; }
 #define D(x) if(k==#x) { c.x=number(v); return; }
 #define I(x) if(k==#x) { c.x=integer(v); return; }
-    S(truth_output) S(camera_model) S(scene) S(trajectory) S(difficulty) S(output) S(assets) S(texture_filter) S(format) S(motion_mode) S(motion_config)
+    S(truth_output) S(camera_model) S(imu_frame) S(scene) S(trajectory) S(difficulty) S(output) S(assets) S(texture_filter) S(format) S(motion_mode) S(motion_config)
     D(blackout_start) D(blackout_duration) D(gravity) D(reported_focal_scale) D(reported_baseline_scale) D(motion_time_offset) D(motion_time_scale) D(duration) D(period) D(size) D(speed_scale) D(warmup) D(ramp) D(cooldown) D(roll_deg) D(pitch_deg) D(yaw_deg) D(yaw_offset_deg) D(yaw_turn_start) D(yaw_turn_duration) D(yaw_turn_deg) D(motion_fixed_distance) D(motion_final_hold) D(motion_move_duration)
     D(alpha) D(beta) D(camera_hz) D(imu_hz) D(baseline) D(fov_deg) D(xi) D(right_yaw_deg) D(right_roll_deg) D(clearance)
     D(image_noise) D(extra_blur) D(brightness) D(contrast) D(gyro_noise_density) D(accel_noise_density) D(gyro_bias_rw) D(accel_bias_rw) D(sensor_blur) D(lab_vignette)
@@ -190,9 +190,13 @@ void validate_config(Config& c) {
     auto require=[](bool b,const std::string& msg) { if(!b) throw std::invalid_argument(msg); };
     require(std::find(scene_names().begin(),scene_names().end(),c.scene)!=scene_names().end(),"Unknown scene");
     require(std::find(trajectory_names().begin(),trajectory_names().end(),c.trajectory)!=trajectory_names().end(),"Unknown trajectory");
+    require(c.imu_frame=="camera" || c.imu_frame=="legacy_z_up","imu_frame must be camera or legacy_z_up");
     if(c.trajectory=="multilevel_walk")
         require(c.scene=="multilevel" || c.scene=="multilevel_tables","multilevel_walk requires a multilevel scene");
     if(c.trajectory=="tables_walk") require(c.scene=="flat_tables","tables_walk requires flat_tables");
+    if(c.trajectory=="figure8_forward")
+        require(c.motion_reference_camera>=0 && c.motion_reference_camera<(c.camera_count>0?c.camera_count:2),
+                "figure8_forward requires a valid motion_reference_camera index");
     if(c.trajectory=="random_long") {
         const std::vector<std::string> motion_modes={"rectilinear","circular","scanner","xr_headset","controller","mower"};
         require(std::find(motion_modes.begin(),motion_modes.end(),c.motion_mode)!=motion_modes.end(),"Unknown motion mode");
@@ -274,7 +278,7 @@ std::string dump_config(const Config& c) {
     std::ostringstream s; s<<std::setprecision(17)<<"# viosim_cpp 1.0.0; flat scalar configuration\n";
 #define X(x) s<<#x<<": "<<c.x<<'\n';
 #define S(x) s<<#x<<": '"<<c.x<<"'\n";
-    S(truth_output) S(camera_model) S(scene) S(trajectory) S(difficulty) S(output) S(assets) S(texture_filter) S(format) S(renderer) S(motion_mode) S(motion_config)
+    S(truth_output) S(camera_model) S(imu_frame) S(scene) S(trajectory) S(difficulty) S(output) S(assets) S(texture_filter) S(format) S(renderer) S(motion_mode) S(motion_config)
     X(blackout_start) X(blackout_duration) X(gravity) X(reported_focal_scale) X(reported_baseline_scale) X(motion_time_offset) X(motion_time_scale) X(duration) X(period) X(size) X(speed_scale) X(warmup) X(ramp) X(cooldown) X(roll_deg) X(yaw_deg) X(yaw_offset_deg) X(yaw_turn_start) X(yaw_turn_duration) X(yaw_turn_deg) X(motion_fixed_distance) X(motion_final_hold) X(motion_move_duration)
     X(profile_render) X(gpu_precompute_rays) X(gpu_postprocess)
     X(alpha) X(beta) X(width) X(height) X(camera_hz) X(imu_hz) X(baseline) X(xi) X(fov_deg) X(right_yaw_deg) X(right_roll_deg) X(clearance)

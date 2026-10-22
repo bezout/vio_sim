@@ -29,6 +29,10 @@ long_motion::World motion_world(const Scene& scene) {
 long_motion::Config motion_config(const Config& host,const Scene& scene,const Rig& rig) {
     const auto mode=long_motion::parse_mode(host.motion_mode);
     auto config=long_motion::profile(mode);
+    const Mat3 basis=imu_basis_rotation(host);
+    config.optical_axis_body=to_long(basis.transpose()*Vec3{0,1,0});
+    config.up_body=to_long(basis.transpose()*Vec3{0,0,1});
+    config.initial_rotation=to_long(basis);
     config.warmup=host.warmup;
     config.start.x=scene.anchor.x;
     config.start.y=scene.anchor.y;
@@ -175,6 +179,12 @@ Jet straight_distance(double t,const Config& c) {
     return (Jet(10)*z3-Jet(15)*z4+Jet(6)*z5)*Jet(c.size);
 }
 State state_at(double t,const Config& c,Vec3 anchor) {
+    const auto in_imu_frame=[&](State state) {
+        const Mat3 basis=imu_basis_rotation(c);
+        state.R=state.R*basis;
+        state.omega=basis.transpose()*state.omega;
+        return state;
+    };
     if(c.trajectory=="multilevel_walk" || c.trajectory=="tables_walk") {
         struct Node { double time,x,y,z,yaw; };
         const bool flat=c.trajectory=="tables_walk";
@@ -211,12 +221,27 @@ State state_at(double t,const Config& c,Vec3 anchor) {
         state.R=Rz*Rx*Ry;
         state.omega=Ry.transpose()*(Rx.transpose()*Vec3{0,0,-yaw.d})
             +Ry.transpose()*Vec3{roll.d,0,0}+Vec3{0,pitch.d,0};
-        return state;
+        return in_imu_frame(state);
     }
     const Jet phase=motion_clock(t,c)*Jet(2*pi/c.period);
     const double scale=c.size;
     Jet x,y,z;
-    if(c.trajectory=="figure8") {
+    if(c.trajectory=="figure8_forward") {
+        // Planar eight: orient the reference camera along the tangent, while
+        // keeping its calibrated relationship to the IMU (body) axes.
+        // The tangent remains defined during warmup.
+        x=Jet(.55*scale)*sin(phase); y=Jet(.65*scale)*sin(Jet(2)*phase);
+        const Jet tx=Jet(.55)*cos(phase),ty=Jet(1.3)*cos(Jet(2)*phase);
+        const double yaw=std::atan2(tx.v,ty.v);
+        const double yaw_rate=(ty.v*tx.d-tx.v*ty.d)/(tx.v*tx.v+ty.v*ty.v);
+        const Mat3 camera_to_world{{1,0,0, 0,0,1, 0,-1,0}};
+        const Mat3 reference_camera=Rig(c).BC.at(size_t(c.motion_reference_camera)).R;
+        const Mat3 body_alignment=camera_to_world*reference_camera.transpose();
+        State s; s.p=anchor+Vec3{x.v,y.v,0}; s.v={x.d,y.d,0}; s.a={x.dd,y.dd,0};
+        s.R=rz(-yaw)*body_alignment;
+        s.omega=body_alignment.transpose()*Vec3{0,0,-yaw_rate};
+        return s;
+    } else if(c.trajectory=="figure8") {
         x=Jet(.55*scale)*sin(phase); y=Jet(.65*scale)*sin(Jet(2)*phase); z=Jet(.06*scale)*sin(phase);
     } else if(c.trajectory=="ellipse") {
         x=Jet(.9*scale)*sin(phase); y=Jet(1.35*scale)*cos(phase); z=Jet(.07*scale)*sin(Jet(2)*phase);
@@ -247,6 +272,6 @@ State state_at(double t,const Config& c,Vec3 anchor) {
     const Mat3 Rz=rz(-yaw.v),Rx=rx(roll.v),Ry=ry(pitch.v);
     State s; s.p=anchor+Vec3{x.v,y.v,z.v}; s.v={x.d,y.d,z.d}; s.a={x.dd,y.dd,z.dd}; s.R=Rz*Rx*Ry;
     s.omega=Ry.transpose()*(Rx.transpose()*Vec3{0,0,-yaw.d})+Ry.transpose()*Vec3{roll.d,0,0}+Vec3{0,pitch.d,0};
-    return s;
+    return in_imu_frame(s);
 }
 } // namespace vio

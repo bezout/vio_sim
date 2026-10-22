@@ -19,11 +19,11 @@ texture_filter: mipmap
 output: output/office_quad_8000s
 
 camera_count: 4
-cam0_rotation_bc: [1, 0, 0, 0, 0, 1, 0, -1, 0]
-cam0_translation_bc: [-0.04, 0, 0.03]
-cam1_rotation_bc: [1, 0, 0, 0, 0, 1, 0, -1, 0]
-cam1_translation_bc: [0.04, 0, 0.03]
-cam2_rotation_bc: [1, 0, 0, 0, 0, 1, 0, -1, 0]
-cam2_translation_bc: [-0.04, 0, -0.03]
-cam3_rotation_bc: [1, 0, 0, 0, 0, 1, 0, -1, 0]
-cam3_translation_bc: [0.04, 0, -0.03]
+cam0_rotation_bc: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+cam0_translation_bc: [-0.04, -0.03, 0]
+cam1_rotation_bc: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+cam1_translation_bc: [0.04, -0.03, 0]
+cam2_rotation_bc: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+cam2_translation_bc: [-0.04, 0.03, 0]
+cam3_rotation_bc: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+cam3_translation_bc: [0.04, 0.03, 0]

@@ -69,6 +69,13 @@ install(DIRECTORY assets DESTINATION share/viosim)
 install(DIRECTORY examples DESTINATION share/viosim)
 
 if(BUILD_TESTING)
+  add_executable(test_viosim_imu_frame test_imu_frame.cpp)
+  target_link_libraries(test_viosim_imu_frame PRIVATE viosim_core)
+  add_test(NAME viosim_imu_frame COMMAND $<TARGET_FILE:test_viosim_imu_frame>)
+  add_executable(test_viosim_figure8_forward test_figure8_forward.cpp)
+  target_link_libraries(test_viosim_figure8_forward PRIVATE viosim_core)
+  add_test(NAME viosim_figure8_forward COMMAND $<TARGET_FILE:test_viosim_figure8_forward>
+      ${CMAKE_CURRENT_SOURCE_DIR}/examples/office_figure8_forward_3laps.yaml)
   add_executable(test_viosim_recovery test_recovery.cpp)
   target_link_libraries(test_viosim_recovery PRIVATE viosim_core)
   add_test(NAME viosim_recovery COMMAND $<TARGET_FILE:test_viosim_recovery>)

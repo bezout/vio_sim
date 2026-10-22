@@ -50,6 +50,7 @@ Sensors:
   --gyro-bias-rw V --accel-bias-rw V
   --initial-gyro-bias [x,y,z] --initial-accel-bias [x,y,z]
   --gravity VALUE              Magnitude in m/s² (default 9.81)
+  --imu-frame camera|legacy_z_up  IMU axes: camera-aligned by default; legacy Z-up opt-in
   --motion-time-offset SECONDS --motion-time-scale FACTOR (random_long)
   --blackout-start SECONDS --blackout-duration SECONDS
   --truth-output DIRECTORY     Live device ground truth export (no images)

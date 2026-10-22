@@ -50,7 +50,7 @@ Rig::Rig(const Config& c) {
         }
         return;
     }
-    const Mat3 R{{1,0,0,0,0,1,0,-1,0}};
+    const Mat3 R=imu_basis_rotation(c).transpose()*Mat3{{1,0,0,0,0,1,0,-1,0}};
     BC={{{-c.baseline*.5,0,0},R},{{c.baseline*.5,0,0},R*ry(radians(c.right_yaw_deg))*rz(radians(c.right_roll_deg))}};
 }
 } // namespace vio
