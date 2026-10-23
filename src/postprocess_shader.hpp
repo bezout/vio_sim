@@ -8,10 +8,10 @@ layout(local_size_x=8,local_size_y=8) in;
 layout(r32f,binding=0) uniform readonly image2DArray source_image;
 layout(r32f,binding=1) uniform writeonly image2DArray blurred_image;
 layout(r8ui,binding=2) uniform writeonly uimage2DArray final_image;
-layout(std430,binding=4) readonly buffer Kernel { float weights[]; };
+layout(std430,binding=0) readonly buffer Kernel { float weights[]; };
 uniform int width,height,radius,pass;
 uniform float contrast,brightness,noise_sigma;
-uniform uvec2 seeds[4];
+uniform uvec2 seeds[6];
 uvec2 add64(uvec2 a,uvec2 b) { uint lo=a.x+b.x;return uvec2(lo,a.y+b.y+uint(lo<a.x)); }
 uvec2 mul64(uvec2 a,uvec2 b) {
     uint hi,lo;umulExtended(a.x,b.x,hi,lo);

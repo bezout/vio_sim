@@ -7,8 +7,10 @@ int main(int argc,char** argv) {
         if(argc!=2) throw std::runtime_error("Expected scenario path");
         vio::Config c; vio::load_config(c,argv[1]); vio::validate_config(c);
         const auto dataset_config=c;
-        for(int variant=0;variant<4;++variant) {
+        double gerono_peak_rotation[4]{};
+        for(const std::string shape:{"gerono","bernoulli"}) for(int variant=0;variant<4;++variant) {
             c=dataset_config;
+            c.figure8_shape=shape;
             if(variant>=2) { c.camera_count=0; c.camera_extrinsics.clear(); }
             c.motion_reference_camera=variant%2;
             vio::validate_config(c);
@@ -25,8 +27,10 @@ int main(int argc,char** argv) {
             };
             if(c.figure8_height>0 && std::abs(vio::dot(vio::cross(point(vio::pi/6),point(5*vio::pi/6)),point(vio::pi/2)))<1e-4)
                 throw std::runtime_error("Eight is still contained in a tilted plane");
+            double peak_rotation=0;
             for(double t=0;t<end;t+=.007) {
                 const auto s=vio::state_at(t,c,scene.anchor);
+                peak_rotation=std::max(peak_rotation,vio::norm(s.omega));
                 if(std::abs(s.p.z-scene.anchor.z)>c.figure8_height*c.size+1e-12)
                     throw std::runtime_error("Height excursion exceeds the configured handheld envelope");
                 const auto forward=s.R*rig.BC[c.motion_reference_camera].R*vio::Vec3{0,0,1};
@@ -41,7 +45,10 @@ int main(int argc,char** argv) {
                 if(vio::norm((b.p-a.p)/(2*dt)-s.v)>1e-7 || vio::norm((b.v-a.v)/(2*dt)-s.a)>1e-6)
                     throw std::runtime_error("Inconsistent translation derivatives");
             }
+            if(shape=="gerono") gerono_peak_rotation[variant]=peak_rotation;
+            else if(peak_rotation>=.6*gerono_peak_rotation[variant])
+                throw std::runtime_error("Rounded eight did not reduce peak rotation at the same lap period");
         }
-        std::cout<<"Three closed eights, both reference cameras in dataset/default rigs, IMU derivatives and collision preflight passed\n";
+        std::cout<<"Both eight shapes: closed laps, reference-camera alignment, IMU derivatives, rounded-turn rotation bound and collision preflight passed\n";
     } catch(const std::exception& e) { std::cerr<<e.what()<<'\n'; return 1; }
 }

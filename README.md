@@ -4,7 +4,7 @@ VioSim is a standalone C++17 simulator for synchronized cameras and an IMU,
 released under the included MIT license. It provides the `viosim_core` library,
 the `viosim` dataset generator and the `viosim_lab_preview` application.
 
-It generates two or four synchronized grayscale images, a SEUCM or UCM camera
+It generates two, four or six synchronized grayscale images, a SEUCM or UCM camera
 calibration, noisy and clean IMU streams, ground truth, and dataset metadata.
 The simulator does not depend on any SLAM implementation.
 
@@ -19,8 +19,9 @@ still forces CPU, while `renderer: gpu` requires GPU and fails if unavailable.
 ## GPU ray cache, postprocessing, and profiling
 
 The GPU computes camera rays once when the renderer starts, using the same
-UCM/SEUCM shader formulas as the reference path. The table is shared by all
-cameras, and stores the two ray differences used by mipmapping when needed.
+UCM/SEUCM shader formulas as the reference path. The default rig shares one table;
+explicit per-camera intrinsics use a separate table for each camera. Tables
+store the two ray differences used by mipmapping when needed.
 It is independent of poses, trajectory, noise and recording length. Changing
 calibration, resolution or supersampling requires constructing a new renderer.
 At 640x400 it uses 11.72 MiB with `samples: 1` and mipmapping, or 46.88 MiB with
@@ -79,6 +80,115 @@ These defaults preserve the rays of the previous `xi: 0.8` UCM projection.
 For the original model, select `camera_model: ucm`; only that model uses `xi`.
 CPU/GPU rendering, live calibration and exported calibration use the selected
 model. SEUCM exports eight intrinsics: `[fx, fy, cx, cy, eu, ev, alpha, beta]`.
+
+### Calibrated multi-camera rigs
+
+Import a two-, four- or six-camera `calib_fisheyes.txt` directly:
+
+```bash
+<build>/apps/viosim generate \
+  --calibration /path/to/calib_fisheyes.txt \
+  --renderer gpu --samples 1 --output /tmp/calibrated_sequence
+```
+
+The importer reads each `R=`, `T=` and `SEUCM` record without changing the
+camera-to-IMU transform. All cameras must share the image resolution. A supplied
+`IMU-Fisheye-shift-us` must be zero. Both the CPU and GPU implement the full
+SEUCM model with independent principal point `(cx, cy)` and distortion center
+`(eu, ev)`. Camera selection preserves the original calibration indices.
+
+Flat YAML can instead set `camN_intrinsics: [fx, fy, cx, cy, eu, ev, alpha, beta]`
+alongside `camera_count`, `camN_rotation_bc`, and `camN_translation_bc`.
+A `calibration: relative/path.txt` entry resolves relative to its YAML file;
+`config_used.yaml` always stores the resolved numerical parameters.
+
+The included `examples/b50.yaml` uses the exact four-camera optical calibration
+from B50 `dataset1`, at 640x480. Its 20-Hz images, 500-Hz IMU and noise profile
+are simulation choices, not measured B50 specifications:
+
+```bash
+<build>/apps/viosim generate --config examples/b50.yaml --output /tmp/viosim_b50
+```
+
+GPU ray caching, mipmapping and GPU postprocessing remain available. At 640x480,
+four separate mipmapped tables use 56.25 MiB for `samples: 1`, or 225 MiB for
+`samples: 2`. Each camera has its own buffer, so the storage-block size check
+applies per camera (14.0625 or 56.25 MiB), rather than to the four-table total.
+The default shared-intrinsics rig retains its single table. As before, a table
+that exceeds the device's per-buffer limit falls back to computing rays in the
+GPU shader; `ray_cache_MiB=0` identifies this case.
+
+The calibrated GPU cache can be checked explicitly on a hardware EGL/OpenGL
+renderer (this test is not part of regular CTest):
+
+```bash
+<build>/apps/test_viosim_gpu_rays assets/textures examples/b50_calib_fisheyes.txt
+<build>/test_viosim_calibration examples/b50_calib_fisheyes.txt assets/textures gpu
+```
+
+### Six-camera helmet
+
+`examples/helmet6.yaml` describes a synthetic helmet rig for horizontal 360-degree
+coverage. It uses B50-like SEUCM distortion (`alpha: 0.60`, `beta: 1.10`), centered
+640x480 images and a 125-degree horizontal FOV. This is a design calibration,
+not the measured B50 calibration or a literal crop of its images.
+
+The optical centers lie on a 24 cm diameter horizontal circle. Cameras face
+radially outward, upright, every 60 degrees. Their order is front, front-right,
+rear-right, rear, rear-left, front-left. The IMU/body origin is the ring center;
+body X points right, Y down and Z forward. Adjacent centers, including cameras
+5 and 0, are 12 cm apart. A rigid carrier around the helmet must maintain these
+transforms; helmet fit and head/helmet occlusion are not simulated.
+
+`examples/helmet6_design.txt` is the same nominal rig in the raw design format
+accepted by `xv_full_process --design-from-file`: six SEUCM cameras, complete
+intrinsics, camera-to-IMU rotations/translations in metres and a zero
+`IMU-Fisheye-shift-us`. Camera order and body axes match `helmet6.yaml`.
+The nominal focal lengths are 290.9886274181942 pixels. This file describes
+the optical design, not a mechanical CAD model or measured calibration.
+Update it when changing the YAML's optical geometry.
+
+```bash
+xv_full_process check_design --design-from-file examples/helmet6_design.txt -f 6
+```
+
+The nominal overlap with each neighbor is 65 degrees at infinity. Overlap
+decreases for nearby objects: this does not guarantee stereo coverage in every
+direction close to the wearer. Coverage here refers to the horizontal horizon,
+not a complete sphere. The default smooth figure eight is 60 seconds long,
+with the front camera aligned to the direction of travel, 20-Hz synchronized
+images and a 500-Hz IMU. Synthetic noise densities of 0.0002 rad/s/sqrt(Hz) and
+0.002 m/s²/sqrt(Hz) allow static initialization during the two-second rest.
+These rates and noise parameters are design choices.
+
+The enclosing SLAM V2 retains all six neighboring stereo pairs, including 5-0.
+Descriptor orientation falls back to camera zero's image axes when there is no
+reference point visible to every camera in the omnidirectional rig.
+
+```bash
+<build>/apps/viosim generate --config examples/helmet6.yaml --dry-run
+<build>/apps/viosim generate --config examples/helmet6.yaml --output /tmp/viosim_helmet6
+```
+
+From the enclosing fast_slam checkout, after rebuilding `slam-gui`:
+
+```bash
+<slam-build>/xslam_sdk/third-party/fast_slam/apps/slam_gui/slam-gui \
+  --v2 --display --realtime 1 --viosim /absolute/path/to/viosim/examples/helmet6.yaml
+```
+
+GPU ray caching, mipmapping and GPU postprocessing support all six views. The
+shared optics use one ray table (14.0625 MiB at `samples: 1` with mipmapping).
+Six independent intrinsics use six buffers (84.375 MiB total). The compute shader
+uses eight storage buffers: six ray buffers plus scene geometry/materials.
+Postprocessing reuses one binding, restored before the next camera group.
+The explicit GPU checks also exercise six different intrinsics and camera
+selection; run them on hardware with:
+
+```bash
+<build>/test_viosim_helmet6 examples/helmet6.yaml assets/textures gpu
+<build>/apps/test_viosim_gpu_rays assets/textures examples/helmet6.yaml
+```
 
 ## Build
 
@@ -181,6 +291,13 @@ attitude and angular velocity follow the selected camera's calibrated extrinsics
 Pitch follows the vertical tangent; `roll_deg` adds a small optical roll
 (default +/-4 degrees) without changing the forward direction. For this mode,
 the independent `yaw_deg` and `pitch_deg` sweep options are unused.
+Set `figure8_shape: bernoulli` with `figure8_forward` for rounded, vertically
+stacked lobes and a transverse center crossing. The default `gerono` retains
+the original horizontal-harmonic curve. The Bernoulli curve uses analytic
+position, velocity, acceleration and tangent derivatives, including for the
+gyroscope. It has no stop or heading discontinuity at the crossing.
+`examples/b50.yaml` uses this rounded shape, a 12-second lap, a 2-second startup
+ramp, +/-1.4 cm height excursion, and +/-2 degrees optical roll.
 `examples/office_figure8_forward_3laps.yaml` runs three complete laps in
 37.5 seconds, including the initial stationary second and startup ramp.
 This example uses the camera-to-IMU rotations and translations from the
@@ -283,7 +400,7 @@ For `random_long`, explicit motion-file body axes and initial rotations remain
 available with `motion_reference_camera: -1`.
 
 An explicit rig contains
-exactly two or four cameras:
+exactly two, four or six cameras:
 
 ```yaml
 camera_count: 4
@@ -306,7 +423,7 @@ sequence/
 ├── cam0/data/<timestamp_ns>.png
 ├── cam1/data.csv
 ├── cam1/data/<timestamp_ns>.png
-├── cam*/...                    # cam2 and cam3 for a four-camera rig
+├── cam*/...                    # cam2 through cam5 for a six-camera rig
 ├── imu.csv
 ├── imu_clean.csv
 ├── groundtruth.csv

@@ -230,9 +230,22 @@ State state_at(double t,const Config& c,Vec3 anchor) {
         // Near-planar handheld/head-worn eight: orient the camera along the 3D tangent, while
         // keeping its calibrated relationship to the IMU (body) axes.
         // The tangent remains defined during warmup.
-        x=Jet(.55*scale)*sin(phase); y=Jet(.65*scale)*sin(Jet(2)*phase);
+        Jet tx,ty;
+        if(c.figure8_shape=="bernoulli") {
+            // Rounded lobes and a transverse crossing, with a nonzero tangent.
+            // tx/ty are derivatives with respect to phase, not time: they also
+            // define the heading while stationary during the startup hold.
+            const Jet sine=sin(phase),cosine=cos(phase),denominator=Jet(1)+cosine*cosine;
+            const Jet denominator2=denominator*denominator;
+            x=Jet(.9*scale)*sine*cosine/denominator;
+            y=Jet(.9*scale)*sine/denominator;
+            tx=Jet(.9)*(Jet(3)*cosine*cosine-Jet(1))/denominator2;
+            ty=Jet(.9)*cosine*(Jet(3)-cosine*cosine)/denominator2;
+        } else {
+            x=Jet(.55*scale)*sin(phase); y=Jet(.65*scale)*sin(Jet(2)*phase);
+            tx=Jet(.55)*cos(phase);ty=Jet(1.3)*cos(Jet(2)*phase);
+        }
         z=Jet(c.figure8_height*scale)*sin(Jet(3)*phase);
-        const Jet tx=Jet(.55)*cos(phase),ty=Jet(1.3)*cos(Jet(2)*phase);
         const Jet tz=Jet(3*c.figure8_height)*cos(Jet(3)*phase);
         const Jet yaw=atan2(tx,ty),elevation=atan2(tz,sqrt(tx*tx+ty*ty));
         const Jet bank=Jet(radians(c.roll_deg))*sin(Jet(2)*phase);

@@ -27,14 +27,14 @@ LiveTruthWriter::LiveTruthWriter(const Simulation& simulation,const std::string&
     output(root/"config_used.yaml")<<dump_config(c);
     output(root/"motion_resolved.yaml")<<simulation.resolved_motion_config();
     auto calibration=output(root/"calibration.csv");
-    calibration<<"camera,fx,fy,cx,cy,alpha,beta,tx,ty,tz,r00,r01,r02,r10,r11,r12,r20,r21,r22\n";
-    const auto& camera=simulation.camera();
+    calibration<<"camera,fx,fy,cx,cy,alpha,beta,tx,ty,tz,r00,r01,r02,r10,r11,r12,r20,r21,r22,eu,ev\n";
     for(size_t i=0;i<simulation.rig().size();++i) {
+        const auto& camera=simulation.camera(i);
         const auto& pose=simulation.rig().BC[i];
         calibration<<i<<','<<camera.fx<<','<<camera.fy<<','<<camera.cx<<','<<camera.cy<<','<<camera.alpha<<','<<camera.beta<<',';
         vector(calibration,pose.p);
         for(double r:pose.R.a) calibration<<','<<r;
-        calibration<<'\n';
+        calibration<<','<<camera.eu<<','<<camera.ev<<'\n';
     }
     poses_=output(root/"groundtruth.csv");
     scene_=&simulation.scene();

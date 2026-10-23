@@ -97,10 +97,11 @@ static std::array<double,N> array_value(const std::string& value,const std::stri
 }
 void set_option(Config& c,const std::string& key,const std::string& v) {
     std::string k=key; std::replace(k.begin(),k.end(),'-','_');
+    if(k=="calibration") { load_calibration(c,v); return; }
 #define S(x) if(k==#x) { c.x=v; return; }
 #define D(x) if(k==#x) { c.x=number(v); return; }
 #define I(x) if(k==#x) { c.x=integer(v); return; }
-    S(truth_output) S(camera_model) S(imu_frame) S(scene) S(trajectory) S(difficulty) S(output) S(assets) S(texture_filter) S(format) S(motion_mode) S(motion_config)
+    S(truth_output) S(camera_model) S(imu_frame) S(scene) S(trajectory) S(difficulty) S(output) S(assets) S(texture_filter) S(format) S(motion_mode) S(motion_config) S(figure8_shape)
     D(blackout_start) D(blackout_duration) D(gravity) D(reported_focal_scale) D(reported_baseline_scale) D(reported_u0_offset) D(reported_v0_offset) D(motion_time_offset) D(motion_time_scale) D(duration) D(period) D(size) D(speed_scale) D(warmup) D(ramp) D(cooldown) D(roll_deg) D(pitch_deg) D(yaw_deg) D(yaw_offset_deg) D(yaw_turn_start) D(yaw_turn_duration) D(yaw_turn_deg) D(motion_fixed_distance) D(motion_final_hold) D(motion_move_duration)
     D(alpha) D(beta) D(camera_hz) D(imu_hz) D(baseline) D(fov_deg) D(xi) D(right_yaw_deg) D(right_roll_deg) D(clearance)
     D(figure8_height)
@@ -143,6 +144,7 @@ void set_option(Config& c,const std::string& key,const std::string& v) {
         auto& camera=c.camera_extrinsics[size_t(index)]; const auto field=k.substr(separator+1);
         if(field=="rotation_bc") { camera.rotation=array_value<9>(v,key); camera.rotation_set=true; return; }
         if(field=="translation_bc") { camera.translation=array_value<3>(v,key); camera.translation_set=true; return; }
+        if(field=="intrinsics") { camera.intrinsics=array_value<8>(v,key); camera.intrinsics_set=true; return; }
         throw std::invalid_argument("Unknown camera field: "+key);
     }
     bool Config::*bool_option=nullptr;
@@ -157,6 +159,46 @@ void set_option(Config& c,const std::string& key,const std::string& v) {
         return;
     }
     throw std::invalid_argument("Unknown option: "+key);
+}
+void load_calibration(Config& c,const std::filesystem::path& path) {
+    std::ifstream input(path);
+    if(!input) throw std::invalid_argument("Cannot open camera calibration: "+path.string());
+    Config imported=c;
+    int count=0;
+    if(!(input>>count) || (count!=2 && count!=4 && count!=6))
+        throw std::invalid_argument("Calibration must contain two, four or six SEUCM cameras");
+    imported.camera_count=count;
+    imported.camera_model="seucm";
+    imported.camera_extrinsics.assign(size_t(count),CameraExtrinsic{});
+    const auto expect=[&](const char* label) {
+        std::string actual;
+        if(!(input>>actual) || actual!=label)
+            throw std::invalid_argument("Expected "+std::string(label)+" in "+path.string());
+    };
+    for(int index=0;index<count;++index) {
+        auto& camera=imported.camera_extrinsics[size_t(index)];
+        expect("R=");
+        for(double& x:camera.rotation) if(!(input>>x)) throw std::invalid_argument("Invalid calibration rotation");
+        expect("T=");
+        for(double& x:camera.translation) if(!(input>>x)) throw std::invalid_argument("Invalid calibration translation");
+        expect("SEUCM");
+        int width=0,height=0;
+        if(!(input>>width>>height)) throw std::invalid_argument("Invalid calibration resolution");
+        if(index==0) { imported.width=width;imported.height=height; }
+        else if(width!=imported.width || height!=imported.height)
+            throw std::invalid_argument("All cameras must have the same resolution");
+        for(double& x:camera.intrinsics) if(!(input>>x)) throw std::invalid_argument("Invalid SEUCM intrinsics");
+        camera.rotation_set=camera.translation_set=camera.intrinsics_set=true;
+    }
+    std::string suffix;
+    if(input>>suffix) {
+        double shift=0;
+        if(suffix!="IMU-Fisheye-shift-us" || !(input>>shift) || shift!=0 || (input>>suffix))
+            throw std::invalid_argument("Calibration requires a zero IMU-Fisheye-shift-us and no extra fields");
+    }
+    // Validate the complete configuration after all files and CLI overrides
+    // have been applied; unrelated options may still be incomplete here.
+    c=std::move(imported);
 }
 void load_config(Config& c,const std::filesystem::path& path) {
     std::ifstream f(path); if(!f) throw std::runtime_error("Cannot read config: "+path.string());
@@ -175,8 +217,10 @@ void load_config(Config& c,const std::filesystem::path& path) {
             value=value.substr(1,end-1);
         } else { const auto hash=value.find('#'); if(hash!=std::string::npos) value=trim(value.substr(0,hash)); }
         try {
-            set_option(c,key,value);
             std::replace(key.begin(),key.end(),'-','_');
+            if(key=="calibration" && std::filesystem::path(value).is_relative())
+                value=(path.parent_path()/value).lexically_normal().string();
+            set_option(c,key,value);
             has_motion_config=has_motion_config || key=="motion_config";
         } catch(const std::exception& e) { throw std::runtime_error(path.string()+":"+std::to_string(n)+": "+e.what()); }
     }
@@ -232,6 +276,8 @@ void validate_config(Config& c) {
     require(c.duration>0 && c.duration<=86400,"duration must be in (0, 86400] seconds");
     require(c.period>0 && c.period<=86400 && c.size>=0 && c.size<=1000 && c.speed_scale>0 && c.speed_scale<=100,"Invalid period, size, or speed scale");
     require(std::isfinite(c.figure8_height) && c.figure8_height>=0 && c.figure8_height<=1,"figure8_height must be in [0,1] metres at size=1");
+    require(c.figure8_shape=="gerono" || c.figure8_shape=="bernoulli","figure8_shape must be gerono or bernoulli");
+    require(c.figure8_shape=="gerono" || c.trajectory=="figure8_forward","Bernoulli shape requires figure8_forward");
     require(c.warmup>=0 && c.ramp>0 && c.cooldown>=0 && c.warmup<=86400 && c.ramp<=86400 && c.cooldown<=86400,"warmup and cooldown must be nonnegative; ramp must be positive");
     require(std::isfinite(c.yaw_turn_start) && c.yaw_turn_start>=0 &&
             std::isfinite(c.yaw_turn_duration) && c.yaw_turn_duration>=0 &&
@@ -262,11 +308,18 @@ void validate_config(Config& c) {
     if(c.camera_count==0) {
         require(c.camera_extrinsics.empty(),"camera_count is required when explicit camera extrinsics are configured");
     } else {
-        require(c.camera_count==2 || c.camera_count==4,"camera_count must be 2 or 4");
+        require(c.camera_count==2 || c.camera_count==4 || c.camera_count==6,"camera_count must be 2, 4 or 6");
         require(c.camera_extrinsics.size()==size_t(c.camera_count),"Incomplete camera rig");
         for(size_t index=0;index<c.camera_extrinsics.size();++index) {
             const auto& camera=c.camera_extrinsics[index];
             require(camera.rotation_set && camera.translation_set,"Every explicit camera needs rotation_BC and translation_BC");
+            if(camera.intrinsics_set) {
+                const auto& k=camera.intrinsics;
+                require(c.camera_model=="seucm","Explicit camera intrinsics require camera_model: seucm");
+                require(std::all_of(k.begin(),k.end(),[](double x){return std::isfinite(x);}) &&
+                        k[0]>0 && k[1]>0 && k[6]>=0 && k[6]<1 && k[7]>0,
+                        "Invalid per-camera SEUCM intrinsics");
+            }
             Mat3 R; R.a=camera.rotation; const Mat3 I=R.transpose()*R;
             double error=0; for(int row=0;row<3;++row) for(int col=0;col<3;++col) error=std::max(error,std::abs(I(row,col)-(row==col?1.0:0.0)));
             const double det=R(0,0)*(R(1,1)*R(2,2)-R(1,2)*R(2,1))-R(0,1)*(R(1,0)*R(2,2)-R(1,2)*R(2,0))+R(0,2)*(R(1,0)*R(2,1)-R(1,1)*R(2,0));
@@ -281,7 +334,7 @@ std::string dump_config(const Config& c) {
     std::ostringstream s; s<<std::setprecision(17)<<"# viosim_cpp 1.0.0; flat scalar configuration\n";
 #define X(x) s<<#x<<": "<<c.x<<'\n';
 #define S(x) s<<#x<<": '"<<c.x<<"'\n";
-    S(truth_output) S(camera_model) S(imu_frame) S(scene) S(trajectory) S(difficulty) S(output) S(assets) S(texture_filter) S(format) S(renderer) S(motion_mode) S(motion_config)
+    S(truth_output) S(camera_model) S(imu_frame) S(scene) S(trajectory) S(difficulty) S(output) S(assets) S(texture_filter) S(format) S(renderer) S(motion_mode) S(motion_config) S(figure8_shape)
     X(blackout_start) X(blackout_duration) X(gravity) X(reported_focal_scale) X(reported_baseline_scale) X(reported_u0_offset) X(reported_v0_offset) X(motion_time_offset) X(motion_time_scale) X(duration) X(period) X(size) X(speed_scale) X(warmup) X(ramp) X(cooldown) X(roll_deg) X(yaw_deg) X(yaw_offset_deg) X(yaw_turn_start) X(yaw_turn_duration) X(yaw_turn_deg) X(motion_fixed_distance) X(motion_final_hold) X(motion_move_duration)
     X(profile_render) X(gpu_precompute_rays) X(gpu_postprocess)
     X(alpha) X(beta) X(width) X(height) X(camera_hz) X(imu_hz) X(baseline) X(xi) X(fov_deg) X(right_yaw_deg) X(right_roll_deg) X(clearance)
@@ -300,6 +353,11 @@ std::string dump_config(const Config& c) {
             s<<"]\ncam"<<i<<"_translation_bc: [";
             for(size_t j=0;j<3;++j) s<<(j?", ":"")<<c.camera_extrinsics[i].translation[j];
             s<<"]\n";
+            if(c.camera_extrinsics[i].intrinsics_set) {
+                s<<"cam"<<i<<"_intrinsics: [";
+                for(size_t j=0;j<8;++j) s<<(j?", ":"")<<c.camera_extrinsics[i].intrinsics[j];
+                s<<"]\n";
+            }
         }
     }
     if(c.initial_gyro_bias_set) s<<"initial_gyro_bias: ["<<c.initial_gyro_bias[0]<<", "<<c.initial_gyro_bias[1]<<", "<<c.initial_gyro_bias[2]<<"]\n";

@@ -1,10 +1,18 @@
 #include "viosim/camera.hpp"
 #include <stdexcept>
 namespace vio {
-Camera::Camera(const Config& c,bool precompute):width(c.width),height(c.height),samples(c.samples),cx((width-1)*.5),cy((height-1)*.5),xi(c.xi),alpha(c.alpha),beta(c.beta),seucm(c.camera_model=="seucm") {
+Camera::Camera(const Config& c,bool precompute):Camera(c,CameraExtrinsic{},precompute) {}
+Camera::Camera(const Config& c,const CameraExtrinsic& calibration,bool precompute):width(c.width),height(c.height),samples(c.samples),cx((width-1)*.5),cy((height-1)*.5),eu(cx),ev(cy),xi(c.xi),alpha(c.alpha),beta(c.beta),seucm(c.camera_model=="seucm") {
     const double theta=radians(c.fov_deg*.5);
     const double st=std::sin(theta),ct=std::cos(theta);
     fx=fy=cx*(seucm ? alpha*std::sqrt(beta*st*st+ct*ct)+(1-alpha)*ct : ct+xi)/st;
+    if(calibration.intrinsics_set) {
+        const auto& k=calibration.intrinsics;
+        fx=k[0];fy=k[1];cx=k[2];cy=k[3];eu=k[4];ev=k[5];alpha=k[6];beta=k[7];
+    }
+    prepare_rays(precompute);
+}
+void Camera::prepare_rays(bool precompute) {
     // Reject configurations whose image corners lie outside the inverse domain.
     for(double u:{-.5,double(width)-.5}) for(double v:{-.5,double(height)-.5}) {
         const auto ray=unproject(u,v);
@@ -23,23 +31,25 @@ Camera::Camera(const Config& c,bool precompute):width(c.width),height(c.height),
     }
 }
 Vec3 Camera::unproject(double u,double v) const {
-    const double x=(u-cx)/fx,y=(v-cy)/fy,r2=x*x+y*y;
+    const double x=(u-(seucm?eu:cx))/fx,y=(v-(seucm?ev:cy))/fy,r2=x*x+y*y;
     if(seucm) {
         const double z=(1-beta*alpha*alpha*r2)/(alpha*std::sqrt(1-(2*alpha-1)*beta*r2)+1-alpha);
-        return normalized({x,y,z});
+        return normalized({x+(eu-cx)/fx*z,y+(ev-cy)/fy*z,z});
     }
     const double l=(xi+std::sqrt(1+(1-xi*xi)*r2))/(1+r2);
     return normalized({l*x,l*y,l-xi});
 }
 std::array<double,2> Camera::project(Vec3 p) const {
     if(seucm) {
+        p.x-=(eu-cx)/fx*p.z;
+        p.y-=(ev-cy)/fy*p.z;
         const double d=std::sqrt(beta*(p.x*p.x+p.y*p.y)+p.z*p.z);
         const double w=alpha>.5 ? (1-alpha)/alpha : alpha/(1-alpha);
         if(p.z<=-w*d) return {NAN,NAN};
     }
     const double denominator=seucm ? (1-alpha)*p.z+alpha*std::sqrt(beta*(p.x*p.x+p.y*p.y)+p.z*p.z) : p.z+xi*norm(p);
     if(denominator<=0) return {NAN,NAN};
-    return {fx*p.x/denominator+cx,fy*p.y/denominator+cy};
+    return {fx*p.x/denominator+(seucm?eu:cx),fy*p.y/denominator+(seucm?ev:cy)};
 }
 Rig::Rig(const Config& c) {
     if(c.camera_count>0) {

@@ -1,0 +1,56 @@
+# Synthetic 360-degree helmet rig, not a measured physical calibration.
+# IMU/body origin: center of the camera ring at head height.
+# Body axes: X right, Y down, Z forward. Camera axes use the same convention.
+# Optical centers on a 24 cm diameter circle; adjacent baseline: 12 cm.
+# Camera order clockwise from above: front, front-right, rear-right,
+# rear, rear-left, front-left. All optical axes are horizontal and radial.
+# B50-like SEUCM shape, centered intrinsics, reduced horizontal FOV:
+# 125 degrees - 60 degrees between axes = 65 degrees overlap per neighbor
+# at infinity. Nearby overlap decreases; helmet/head occlusions are not modeled.
+camera_model: seucm
+alpha: 0.60
+beta: 1.10
+width: 640
+height: 480
+fov_deg: 125
+imu_frame: camera
+camera_count: 6
+
+cam0_rotation_bc: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+cam0_translation_bc: [0, 0, 0.12]
+cam1_rotation_bc: [0.5, 0, 0.866025403784439, 0, 1, 0, -0.866025403784439, 0, 0.5]
+cam1_translation_bc: [0.103923048454133, 0, 0.06]
+cam2_rotation_bc: [-0.5, 0, 0.866025403784439, 0, 1, 0, -0.866025403784439, 0, -0.5]
+cam2_translation_bc: [0.103923048454133, 0, -0.06]
+cam3_rotation_bc: [-1, 0, 0, 0, 1, 0, 0, 0, -1]
+cam3_translation_bc: [0, 0, -0.12]
+cam4_rotation_bc: [-0.5, 0, -0.866025403784439, 0, 1, 0, 0.866025403784439, 0, -0.5]
+cam4_translation_bc: [-0.103923048454133, 0, -0.06]
+cam5_rotation_bc: [0.5, 0, -0.866025403784439, 0, 1, 0, 0.866025403784439, 0, 0.5]
+cam5_translation_bc: [-0.103923048454133, 0, 0.06]
+
+scene: corridor
+trajectory: figure8_forward
+figure8_shape: bernoulli
+motion_reference_camera: 0
+difficulty: easy
+duration: 60
+period: 20
+warmup: 2
+ramp: 2
+size: 2
+figure8_height: 0.02
+roll_deg: 2
+camera_hz: 20
+imu_hz: 500
+# Synthetic quiet IMU so the initial two-second rest supports static SLAM init.
+# Noise densities in rad/s/sqrt(Hz) and m/s^2/sqrt(Hz), not measured B50 values.
+gyro_noise_density: 0.0002
+accel_noise_density: 0.002
+samples: 1
+threads: 4
+renderer: auto
+gpu_precompute_rays: true
+gpu_postprocess: true
+profile_render: true
+preview_count: 3

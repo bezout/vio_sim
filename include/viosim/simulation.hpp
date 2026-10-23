@@ -6,6 +6,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <stdexcept>
 #include <vector>
 
 namespace vio {
@@ -26,6 +27,7 @@ struct ImuSample {
 struct CameraGroup {
     int64_t timestamp_ns=0;
     std::vector<Pose> poses;
+    std::vector<size_t> camera_indices;
     std::vector<uint64_t> image_seeds;
     std::vector<Image8> images;
 };
@@ -39,7 +41,10 @@ public:
     const Config& config() const { return config_; }
     const Scene& scene() const { return scene_; }
     const Rig& rig() const { return rig_; }
-    const Camera& camera() const { return camera_; }
+    const Camera& camera(size_t index=0) const {
+        if(index>=rig_.size()) throw std::out_of_range("VioSim camera index is outside the rig");
+        return cameras_.at(cameras_.size()==1?0:index);
+    }
     const TrajectoryStats& trajectory_stats() const { return stats_; }
     const std::string& renderer_backend() const { return renderer_backend_; }
     const std::string& renderer_note() const { return renderer_note_; }
@@ -56,7 +61,7 @@ private:
     Config config_;
     Scene scene_;
     Rig rig_;
-    Camera camera_;
+    std::vector<Camera> cameras_;
     TextureBank textures_;
     std::unique_ptr<TrajectoryCursor> imu_trajectory_,camera_trajectory_;
     std::shared_ptr<GpuRenderer> gpu_renderer_;

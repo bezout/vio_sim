@@ -42,7 +42,9 @@ Sensors:
   --alpha VALUE --beta VALUE    SEUCM parameters (defaults 4/9 and 1)
   --baseline 0.08 --fov-deg 120 --xi 0.8
   --right-yaw-deg 1 --right-roll-deg 0.6
-  --camera-count 2|4           Enable explicit rig extrinsics (normally from YAML)
+  --camera-count 2|4|6         Enable explicit rig extrinsics (normally from YAML)
+  --calibration FILE          Import a calib_fisheyes.txt SEUCM rig (zero time shift)
+  --camN-intrinsics [8 values]  fx,fy,u0,v0,eu,ev,alpha,beta (SEUCM)
   --camN-rotation-bc [9 values] --camN-translation-bc [3 values]
   --image-noise SIGMA --extra-blur SIGMA --sensor-blur SIGMA
   --brightness FACTOR --contrast FACTOR
@@ -52,6 +54,7 @@ Sensors:
   --gravity VALUE              Magnitude in m/s² (default 9.81)
   --imu-frame camera|legacy_z_up  IMU axes: camera-aligned by default; legacy Z-up opt-in
   --figure8-height METRES       Vertical amplitude at size=1 (default .06); 0 for planar eights
+  --figure8-shape gerono|bernoulli  Figure8_forward geometry (default gerono)
   --motion-time-offset SECONDS --motion-time-scale FACTOR (random_long)
   --blackout-start SECONDS --blackout-duration SECONDS
   --truth-output DIRECTORY     Live device ground truth export (no images)

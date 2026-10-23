@@ -12,12 +12,15 @@ struct Float3 {
 struct RaySample { Float3 d,dx,dy; };
 struct Camera {
     int width,height,samples;
-    double fx,fy,cx,cy,xi,alpha,beta;
+    double fx,fy,cx,cy,eu,ev,xi,alpha,beta;
     bool seucm;
     std::vector<RaySample> rays;
     explicit Camera(const Config&,bool precompute=true);
+    Camera(const Config&,const CameraExtrinsic&,bool precompute=true);
     Vec3 unproject(double u,double v) const;
     std::array<double,2> project(Vec3 p) const;
+private:
+    void prepare_rays(bool precompute);
 };
 struct Pose { Vec3 p; Mat3 R; };
 // Maps configured IMU axes into the original Z-up trajectory body frame.

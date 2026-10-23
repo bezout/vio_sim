@@ -9,6 +9,9 @@ struct CameraExtrinsic {
     std::array<double,9> rotation{{1,0,0,0,1,0,0,0,1}};
     std::array<double,3> translation{{0,0,0}};
     bool rotation_set=false,translation_set=false;
+    // SEUCM: fx, fy, u0, v0, eu, ev, alpha, beta. Resolution is shared.
+    std::array<double,8> intrinsics{};
+    bool intrinsics_set=false;
 };
 struct Config {
     std::string scene="office",trajectory="figure8",difficulty="easy",output="output/sequence",assets;
@@ -23,6 +26,7 @@ struct Config {
     double motion_fixed_distance=0,motion_final_hold=0,motion_move_duration=0;
     double duration=8,period=8,size=1,speed_scale=1,warmup=1,ramp=1,cooldown=0;
     double figure8_height=.06;
+    std::string figure8_shape="gerono";
     double roll_deg=4,pitch_deg=2.5,yaw_deg=18,yaw_offset_deg=0;
     double yaw_turn_start=0,yaw_turn_duration=0,yaw_turn_deg=0;
     double camera_hz=50,imu_hz=500,baseline=.08,fov_deg=120,xi=.8;
@@ -64,6 +68,9 @@ struct BenchmarkPreset {
 const std::vector<BenchmarkPreset>& benchmark_presets();
 void set_option(Config&,const std::string& key,const std::string& value);
 void load_config(Config&,const std::filesystem::path&);
+// Imports calibration fields only. Call validate_config after all files and
+// command-line overrides have been applied.
+void load_calibration(Config&,const std::filesystem::path&);
 void validate_config(Config&);
 std::string dump_config(const Config&);
 int64_t sample_count(double duration,double rate);

@@ -78,6 +78,11 @@ inline Jet operator+(Jet a,Jet b) { return {a.v+b.v,a.d+b.d,a.dd+b.dd}; }
 inline Jet operator-(Jet a,Jet b) { return {a.v-b.v,a.d-b.d,a.dd-b.dd}; }
 inline Jet operator-(Jet a) { return {-a.v,-a.d,-a.dd}; }
 inline Jet operator*(Jet a,Jet b) { return {a.v*b.v,a.d*b.v+a.v*b.d,a.dd*b.v+2*a.d*b.d+a.v*b.dd}; }
+inline Jet operator/(Jet a,Jet b) {
+    const double inverse=1/b.v;
+    return a*Jet{inverse,-b.d*inverse*inverse,
+                 2*b.d*b.d*inverse*inverse*inverse-b.dd*inverse*inverse};
+}
 inline Jet sin(Jet a) { return {std::sin(a.v),std::cos(a.v)*a.d,std::cos(a.v)*a.dd-std::sin(a.v)*a.d*a.d}; }
 inline Jet cos(Jet a) { return {std::cos(a.v),-std::sin(a.v)*a.d,-std::sin(a.v)*a.dd-std::cos(a.v)*a.d*a.d}; }
 inline Jet sqrt(Jet a) {

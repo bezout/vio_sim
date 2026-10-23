@@ -27,32 +27,59 @@ const char* compute_shader=R"GLSL(#version 430
 layout(local_size_x=8,local_size_y=8,local_size_z=1) in;
 layout(r32f,binding=0) uniform writeonly image2DArray output_image;
 layout(binding=0) uniform sampler2DArray textures_image;
-layout(std430,binding=1) readonly buffer BoxBuffer { vec4 boxes[]; };
-layout(std430,binding=2) readonly buffer MaterialBuffer { vec4 materials[]; };
-layout(std430,binding=3) buffer RayBuffer { vec4 cached_rays[]; };
+layout(std430,binding=6) readonly buffer BoxBuffer { vec4 boxes[]; };
+layout(std430,binding=7) readonly buffer MaterialBuffer { vec4 materials[]; };
+// Separate buffers keep each camera below GL_MAX_SHADER_STORAGE_BLOCK_SIZE.
+// Six ray buffers plus scene data use the eight guaranteed compute SSBO slots.
+layout(std430,binding=0) buffer RayBuffer0 { vec4 cached_rays0[]; };
+layout(std430,binding=1) buffer RayBuffer1 { vec4 cached_rays1[]; };
+layout(std430,binding=2) buffer RayBuffer2 { vec4 cached_rays2[]; };
+layout(std430,binding=3) buffer RayBuffer3 { vec4 cached_rays3[]; };
+layout(std430,binding=4) buffer RayBuffer4 { vec4 cached_rays4[]; };
+layout(std430,binding=5) buffer RayBuffer5 { vec4 cached_rays5[]; };
 // 0: reference calculation, 1: initialize table, 2: render using table.
 uniform int ray_mode;
 
-uniform int camera_seucm;
-uniform float camera_alpha,camera_beta;
+uniform int camera_seucm[6],camera_indices[6];
+uniform float camera_alpha[6],camera_beta[6];
 uniform int image_width,image_height,sample_count,camera_count,box_count,decal_count;
 uniform int texture_filter,distance_shading,lab_scene,lab_reflections;
-uniform float camera_fx,camera_fy,camera_cx,camera_cy,camera_xi,lab_vignette;
+uniform float camera_fx[6],camera_fy[6],camera_cx[6],camera_cy[6],camera_eu[6],camera_ev[6],camera_xi[6],lab_vignette;
 uniform vec3 room_lo,room_hi;
-uniform vec3 pose_p[4],pose_r0[4],pose_r1[4],pose_r2[4];
+uniform vec3 pose_p[6],pose_r0[6],pose_r1[6],pose_r2[6];
 
 vec3 rotate_camera(int camera,vec3 v) {
     return vec3(dot(pose_r0[camera],v),dot(pose_r1[camera],v),dot(pose_r2[camera],v));
 }
 
-vec3 camera_ray(float u,float v) {
-    float x=(u-camera_cx)/camera_fx,y=(v-camera_cy)/camera_fy,r2=x*x+y*y;
-    if(camera_seucm!=0) {
-        float z=(1.0-camera_beta*camera_alpha*camera_alpha*r2)/(camera_alpha*sqrt(1.0-(2.0*camera_alpha-1.0)*camera_beta*r2)+1.0-camera_alpha);
-        return normalize(vec3(x,y,z));
+vec3 camera_ray(int k,float u,float v) {
+    bool seucm=camera_seucm[k]!=0;
+    float x=(u-(seucm?camera_eu[k]:camera_cx[k]))/camera_fx[k];
+    float y=(v-(seucm?camera_ev[k]:camera_cy[k]))/camera_fy[k],r2=x*x+y*y;
+    if(seucm) {
+        float a=camera_alpha[k],b=camera_beta[k];
+        float z=(1.0-b*a*a*r2)/(a*sqrt(1.0-(2.0*a-1.0)*b*r2)+1.0-a);
+        return normalize(vec3(x+(camera_eu[k]-camera_cx[k])/camera_fx[k]*z,
+                              y+(camera_ev[k]-camera_cy[k])/camera_fy[k]*z,z));
     }
-    float l=(camera_xi+sqrt(1.0+(1.0-camera_xi*camera_xi)*r2))/(1.0+r2);
-    return normalize(vec3(l*x,l*y,l-camera_xi));
+    float xi=camera_xi[k],l=(xi+sqrt(1.0+(1.0-xi*xi)*r2))/(1.0+r2);
+    return normalize(vec3(l*x,l*y,l-xi));
+}
+vec3 cached_ray(int k,int index) {
+    if(k==0) return cached_rays0[index].xyz;
+    if(k==1) return cached_rays1[index].xyz;
+    if(k==2) return cached_rays2[index].xyz;
+    if(k==3) return cached_rays3[index].xyz;
+    if(k==4) return cached_rays4[index].xyz;
+    return cached_rays5[index].xyz;
+}
+void store_ray(int k,int index,vec3 ray) {
+    if(k==0) cached_rays0[index]=vec4(ray,0);
+    else if(k==1) cached_rays1[index]=vec4(ray,0);
+    else if(k==2) cached_rays2[index]=vec4(ray,0);
+    else if(k==3) cached_rays3[index]=vec4(ray,0);
+    else if(k==4) cached_rays4[index]=vec4(ray,0);
+    else cached_rays5[index]=vec4(ray,0);
 }
 
 bool intersect_box(vec3 lo,vec3 hi,vec3 origin,vec3 ray,
@@ -121,6 +148,7 @@ void main() {
     ivec3 output_pixel=ivec3(gl_GlobalInvocationID);
     if(output_pixel.x>=image_width || output_pixel.y>=image_height || output_pixel.z>=camera_count) return;
     int camera=output_pixel.z;
+    int calibration=camera_indices[camera];
     float total=0.0;
     for(int sy=0;sy<sample_count;++sy) for(int sx=0;sx<sample_count;++sx) {
         float step_size=1.0/float(sample_count);
@@ -130,15 +158,15 @@ void main() {
         int ray_index=((output_pixel.y*sample_count+sy)*(image_width*sample_count)+output_pixel.x*sample_count+sx)*stride;
         vec3 local_ray,local_dx=vec3(0),local_dy=vec3(0);
         if(ray_mode==2) {
-            local_ray=cached_rays[ray_index].xyz;
+            local_ray=cached_ray(calibration,ray_index);
         } else {
-            local_ray=camera_ray(u,v);
+            local_ray=camera_ray(calibration,u,v);
         }
         if(ray_mode==1) {
-            cached_rays[ray_index]=vec4(local_ray,0);
+            store_ray(calibration,ray_index,local_ray);
             if(texture_filter==2) {
-                cached_rays[ray_index+1]=vec4(camera_ray(u+0.5*step_size,v)-camera_ray(u-0.5*step_size,v),0);
-                cached_rays[ray_index+2]=vec4(camera_ray(u,v+0.5*step_size)-camera_ray(u,v-0.5*step_size),0);
+                store_ray(calibration,ray_index+1,camera_ray(calibration,u+0.5*step_size,v)-camera_ray(calibration,u-0.5*step_size,v));
+                store_ray(calibration,ray_index+2,camera_ray(calibration,u,v+0.5*step_size)-camera_ray(calibration,u,v-0.5*step_size));
             }
             continue;
         }
@@ -184,11 +212,11 @@ void main() {
                 int normal_axis=face/2;
                 if(abs(ray[normal_axis])>1e-10) {
                     if(ray_mode==2) {
-                        local_dx=cached_rays[ray_index+1].xyz;
-                        local_dy=cached_rays[ray_index+2].xyz;
+                        local_dx=cached_ray(calibration,ray_index+1);
+                        local_dy=cached_ray(calibration,ray_index+2);
                     } else {
-                        local_dx=camera_ray(u+0.5*step_size,v)-camera_ray(u-0.5*step_size,v);
-                        local_dy=camera_ray(u,v+0.5*step_size)-camera_ray(u,v-0.5*step_size);
+                        local_dx=camera_ray(calibration,u+0.5*step_size,v)-camera_ray(calibration,u-0.5*step_size,v);
+                        local_dy=camera_ray(calibration,u,v+0.5*step_size)-camera_ray(calibration,u,v-0.5*step_size);
                     }
                     vec3 ddx=rotate_camera(camera,local_dx);
                     vec3 ddy=rotate_camera(camera,local_dy);
@@ -209,8 +237,9 @@ void main() {
     if(ray_mode==1) return;
     float vignette=1.0;
     if(lab_scene!=0 && lab_vignette>0.0) {
-        float dx=float(output_pixel.x)-camera_cx,dy=float(output_pixel.y)-camera_cy;
-        float r2=(dx*dx+dy*dy)/(camera_cx*camera_cx+camera_cy*camera_cy);
+        float cx=camera_cx[calibration],cy=camera_cy[calibration];
+        float dx=float(output_pixel.x)-cx,dy=float(output_pixel.y)-cy;
+        float r2=(dx*dx+dy*dy)/(cx*cx+cy*cy);
         vignette=clamp(1.0-lab_vignette*r2,.05,1.0);
     }
     imageStore(output_image,output_pixel,vec4(total/float(sample_count*sample_count)*vignette,0,0,1));
@@ -257,6 +286,8 @@ struct GpuRenderer::Impl {
     GLint post_pass=-1,post_seeds=-1;
     Config config; std::string name; int boxes_count=0,decals_count=0,output_layers=2;
     GLint camera_count_location=-1,pose_p_location=-1,pose_r0_location=-1,pose_r1_location=-1,pose_r2_location=-1;
+    std::array<GLint,6> camera_indices_location{};
+    size_t calibration_count=1;
     mutable std::mutex mutex;
     using Clock=std::chrono::steady_clock;
     mutable std::mutex profile_mutex;
@@ -264,7 +295,7 @@ struct GpuRenderer::Impl {
     // Profiling explicitly waits before readback to distinguish GPU waiting
     // from transfer. All durations are host elapsed time, not hardware timers.
     std::array<double,6> profile_sum{},profile_max{};
-    GLuint ray_buffer=0;
+    std::array<GLuint,6> ray_buffers{};
     size_t ray_bytes=0;
     double ray_init_ms=0;
     static double ms(Clock::time_point a,Clock::time_point b) {
@@ -300,7 +331,13 @@ struct GpuRenderer::Impl {
     PFNGLFINISHPROC Finish{};
     PFNGLUNIFORM2UIVPROC Uniform2uiv{};
 
-    Impl(const Camera& camera,const Scene& scene,const TextureBank& textures,const Config& config_):config(config_) {
+    Impl(const std::vector<Camera>& cameras,const Scene& scene,const TextureBank& textures,const Config& config_):config(config_),calibration_count(cameras.size()) {
+        if(cameras.empty() || cameras.size()>6 || config.camera_count>6)
+            throw std::invalid_argument("GPU expects one to six camera calibrations and at most six output cameras");
+        const auto& camera=cameras.front();
+        for(const auto& other:cameras)
+            if(other.width!=camera.width || other.height!=camera.height || other.samples!=camera.samples)
+                throw std::invalid_argument("GPU cameras must share resolution and supersampling");
         try {
             initialize_egl(); load_functions();
             const char* renderer=reinterpret_cast<const char*>(GetString(GL_RENDERER));
@@ -310,7 +347,7 @@ struct GpuRenderer::Impl {
             program=build_program();
             cache_dynamic_uniforms();
             upload_textures(textures); upload_scene(scene); create_output(camera);
-            set_static_uniforms(camera,scene);
+            set_static_uniforms(cameras,scene);
             initialize_rays(camera);
             if(config.gpu_postprocess) initialize_postprocess();
             eglMakeCurrent(display,EGL_NO_SURFACE,EGL_NO_SURFACE,EGL_NO_CONTEXT);
@@ -422,10 +459,10 @@ struct GpuRenderer::Impl {
         }
         GenBuffers(1,&box_buffer);BindBuffer(GL_SHADER_STORAGE_BUFFER,box_buffer);
         BufferData(GL_SHADER_STORAGE_BUFFER,GLsizeiptr(box_data.size()*sizeof(float)),box_data.data(),GL_STATIC_DRAW);
-        BindBufferBase(GL_SHADER_STORAGE_BUFFER,1,box_buffer);
+        BindBufferBase(GL_SHADER_STORAGE_BUFFER,6,box_buffer);
         GenBuffers(1,&material_buffer);BindBuffer(GL_SHADER_STORAGE_BUFFER,material_buffer);
         BufferData(GL_SHADER_STORAGE_BUFFER,GLsizeiptr(material_data.size()*sizeof(float)),material_data.data(),GL_STATIC_DRAW);
-        BindBufferBase(GL_SHADER_STORAGE_BUFFER,2,material_buffer);
+        BindBufferBase(GL_SHADER_STORAGE_BUFFER,7,material_buffer);
     }
 
     void initialize_rays(const Camera& camera) {
@@ -436,14 +473,20 @@ struct GpuRenderer::Impl {
         // Keep the reference path on devices where the requested table exceeds
         // the per-buffer limit. The profile reports a zero-sized cache.
         const bool cache=config.gpu_precompute_rays && bytes<=size_t(limit);
-        GenBuffers(1,&ray_buffer);BindBuffer(GL_SHADER_STORAGE_BUFFER,ray_buffer);
-        ray_bytes=cache?bytes:0;
-        BufferData(GL_SHADER_STORAGE_BUFFER,GLsizeiptr(cache?bytes:16),nullptr,GL_STATIC_DRAW);
-        BindBufferBase(GL_SHADER_STORAGE_BUFFER,3,ray_buffer);
+        GenBuffers(GLsizei(calibration_count),ray_buffers.data());
+        ray_bytes=cache?bytes*calibration_count:0;
+        for(size_t i=0;i<calibration_count;++i) {
+            BindBuffer(GL_SHADER_STORAGE_BUFFER,ray_buffers[i]);
+            BufferData(GL_SHADER_STORAGE_BUFFER,GLsizeiptr(cache?bytes:16),nullptr,GL_STATIC_DRAW);
+        }
+        for(size_t i=0;i<ray_buffers.size();++i) {
+            BindBufferBase(GL_SHADER_STORAGE_BUFFER,GLuint(i),ray_buffers[i%calibration_count]);
+            Uniform1i(camera_indices_location[i],GLint(i%calibration_count));
+        }
         if(cache) {
             BindImageTexture(0,output_texture,0,GL_TRUE,0,GL_WRITE_ONLY,GL_R32F);
-            Uniform1i(camera_count_location,1);Uniform1i(location("ray_mode"),1);
-            DispatchCompute(GLuint((camera.width+7)/8),GLuint((camera.height+7)/8),1);
+            Uniform1i(camera_count_location,GLint(calibration_count));Uniform1i(location("ray_mode"),1);
+            DispatchCompute(GLuint((camera.width+7)/8),GLuint((camera.height+7)/8),GLuint(calibration_count));
             MemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
             if(config.profile_render) Finish();
         }
@@ -469,7 +512,7 @@ struct GpuRenderer::Impl {
         for(auto& v:kernel) v=float(v/total);
         GenBuffers(1,&kernel_buffer);BindBuffer(GL_SHADER_STORAGE_BUFFER,kernel_buffer);
         BufferData(GL_SHADER_STORAGE_BUFFER,GLsizeiptr(kernel.size()*sizeof(float)),kernel.data(),GL_STATIC_DRAW);
-        BindBufferBase(GL_SHADER_STORAGE_BUFFER,4,kernel_buffer);
+        BindBufferBase(GL_SHADER_STORAGE_BUFFER,0,kernel_buffer);
         GenTextures(1,&blur_texture);BindTexture(GL_TEXTURE_2D_ARRAY,blur_texture);
         TexStorage3D(GL_TEXTURE_2D_ARRAY,1,GL_R32F,config.width,config.height,output_layers);
         GenTextures(1,&byte_texture);BindTexture(GL_TEXTURE_2D_ARRAY,byte_texture);
@@ -478,7 +521,9 @@ struct GpuRenderer::Impl {
 
     void postprocess(const std::vector<uint64_t>& seeds) {
         UseProgram(post_program);
-        GLuint words[8]{};
+        // Postprocessing reuses ray slot zero; rendering restores it each group.
+        BindBufferBase(GL_SHADER_STORAGE_BUFFER,0,kernel_buffer);
+        GLuint words[12]{};
         for(size_t i=0;i<seeds.size();++i) { words[2*i]=GLuint(seeds[i]);words[2*i+1]=GLuint(seeds[i]>>32); }
         Uniform2uiv(post_seeds,GLsizei(seeds.size()),words);
         BindImageTexture(0,output_texture,0,GL_TRUE,0,GL_READ_ONLY,GL_R32F);
@@ -494,7 +539,7 @@ struct GpuRenderer::Impl {
     }
 
     void create_output(const Camera& camera) {
-        output_layers=config.camera_count==4?4:2;
+        output_layers=std::max(config.camera_count>0?config.camera_count:2,int(calibration_count));
         GenTextures(1,&output_texture);BindTexture(GL_TEXTURE_2D_ARRAY,output_texture);
         TexStorage3D(GL_TEXTURE_2D_ARRAY,1,GL_R32F,camera.width,camera.height,output_layers);
         TexParameteri(GL_TEXTURE_2D_ARRAY,GL_TEXTURE_MIN_FILTER,GL_NEAREST);TexParameteri(GL_TEXTURE_2D_ARRAY,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
@@ -504,11 +549,21 @@ struct GpuRenderer::Impl {
     void cache_dynamic_uniforms() {
         camera_count_location=location("camera_count");pose_p_location=location("pose_p[0]");
         pose_r0_location=location("pose_r0[0]");pose_r1_location=location("pose_r1[0]");pose_r2_location=location("pose_r2[0]");
+        for(size_t i=0;i<camera_indices_location.size();++i) camera_indices_location[i]=location(("camera_indices["+std::to_string(i)+"]").c_str());
     }
-    void set_static_uniforms(const Camera& camera,const Scene& scene) {
+    void set_static_uniforms(const std::vector<Camera>& cameras,const Scene& scene) {
+        const auto& camera=cameras.front();
         UseProgram(program);
-        Uniform1i(location("camera_seucm"),camera.seucm);
-        Uniform1f(location("camera_alpha"),float(camera.alpha));Uniform1f(location("camera_beta"),float(camera.beta));
+        for(size_t i=0;i<cameras.size();++i) {
+            const auto& c=cameras[i];
+            const auto loc=[&](const char* name){return location((std::string(name)+"["+std::to_string(i)+"]").c_str());};
+            Uniform1i(loc("camera_seucm"),c.seucm);
+            Uniform1f(loc("camera_alpha"),float(c.alpha));Uniform1f(loc("camera_beta"),float(c.beta));
+            Uniform1f(loc("camera_fx"),float(c.fx));Uniform1f(loc("camera_fy"),float(c.fy));
+            Uniform1f(loc("camera_cx"),float(c.cx));Uniform1f(loc("camera_cy"),float(c.cy));
+            Uniform1f(loc("camera_eu"),float(c.eu));Uniform1f(loc("camera_ev"),float(c.ev));
+            Uniform1f(loc("camera_xi"),float(c.xi));
+        }
         Uniform1i(location("image_width"),camera.width);Uniform1i(location("image_height"),camera.height);
         Uniform1i(location("sample_count"),camera.samples);Uniform1i(location("box_count"),boxes_count);Uniform1i(location("decal_count"),decals_count);
         Uniform1i(location("texture_filter"),config.texture_filter=="nearest"?0:(config.texture_filter=="bilinear"?1:2));
@@ -516,15 +571,13 @@ struct GpuRenderer::Impl {
         Uniform1i(location("lab_scene"),scene.name=="lab_room"?1:0);
         Uniform1i(location("lab_reflections"),config.lab_reflections?1:0);
         Uniform1f(location("lab_vignette"),float(config.lab_vignette));
-        Uniform1f(location("camera_fx"),float(camera.fx));Uniform1f(location("camera_fy"),float(camera.fy));
-        Uniform1f(location("camera_cx"),float(camera.cx));Uniform1f(location("camera_cy"),float(camera.cy));Uniform1f(location("camera_xi"),float(camera.xi));
         const GLfloat lo[]={float(scene.room.lo.x),float(scene.room.lo.y),float(scene.room.lo.z)};
         const GLfloat hi[]={float(scene.room.hi.x),float(scene.room.hi.y),float(scene.room.hi.z)};
         Uniform3fv(location("room_lo"),1,lo);Uniform3fv(location("room_hi"),1,hi);Uniform1i(location("textures_image"),0);
     }
 
     void set_pose_uniforms(const std::vector<Pose>& poses) {
-        std::array<GLfloat,12> positions{},rotations0{},rotations1{},rotations2{};
+        std::array<GLfloat,18> positions{},rotations0{},rotations1{},rotations2{};
         for(size_t camera=0;camera<poses.size();++camera) {
             const Pose& pose=poses[camera];
             const size_t offset=3*camera;
@@ -542,8 +595,14 @@ struct GpuRenderer::Impl {
         Uniform3fv(pose_r2_location,count,rotations2.data());
     }
 
-    std::vector<Image8> render(const std::vector<Pose>& poses,const std::vector<uint64_t>& seeds) {
-        if(poses.empty() || poses.size()>4 || poses.size()!=seeds.size()) throw std::invalid_argument("VioSim GPU expects one to four poses and matching seeds");
+    std::vector<Image8> render(const std::vector<Pose>& poses,const std::vector<uint64_t>& seeds,const std::vector<size_t>& cameras) {
+        if(poses.empty() || poses.size()>size_t(output_layers) || poses.size()!=seeds.size()) throw std::invalid_argument("VioSim GPU expects poses within output capacity and matching seeds");
+        if(!cameras.empty() && cameras.size()!=poses.size()) throw std::invalid_argument("GPU camera selection must match poses");
+        std::array<size_t,6> indices{};
+        for(size_t i=0;i<poses.size();++i) {
+            indices[i]=calibration_count==1?0:(cameras.empty()?i:cameras[i]);
+            if(indices[i]>=calibration_count) throw std::out_of_range("GPU camera calibration index is out of range");
+        }
         const bool profiling=config.profile_render;
         const auto start=profiling?Clock::now():Clock::time_point{};
         std::array<double,6> timings{};
@@ -558,9 +617,12 @@ struct GpuRenderer::Impl {
             if(!eglMakeCurrent(display,surface,surface,context)) throw std::runtime_error("Cannot activate VioSim GPU context for rendering");
             try {
                 UseProgram(program);Uniform1i(camera_count_location,GLint(poses.size()));
+                for(size_t i=0;i<poses.size();++i) Uniform1i(camera_indices_location[i],GLint(indices[i]));
                 set_pose_uniforms(poses);
                 ActiveTexture(GL_TEXTURE0);BindTexture(GL_TEXTURE_2D_ARRAY,texture_array);BindImageTexture(0,output_texture,0,GL_TRUE,0,GL_WRITE_ONLY,GL_R32F);
-                BindBufferBase(GL_SHADER_STORAGE_BUFFER,1,box_buffer);BindBufferBase(GL_SHADER_STORAGE_BUFFER,2,material_buffer);
+                BindBufferBase(GL_SHADER_STORAGE_BUFFER,6,box_buffer);BindBufferBase(GL_SHADER_STORAGE_BUFFER,7,material_buffer);
+                for(size_t i=0;i<ray_buffers.size();++i)
+                    BindBufferBase(GL_SHADER_STORAGE_BUFFER,GLuint(i),ray_buffers[i%calibration_count]);
                 DispatchCompute(GLuint((config.width+7)/8),GLuint((config.height+7)/8),GLuint(poses.size()));
                 MemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT);
                 if(config.gpu_postprocess) postprocess(seeds);
@@ -604,7 +666,7 @@ struct GpuRenderer::Impl {
     void cleanup() noexcept {
         if(display==EGL_NO_DISPLAY) return;
         if(context!=EGL_NO_CONTEXT && surface!=EGL_NO_SURFACE) eglMakeCurrent(display,surface,surface,context);
-        if(DeleteBuffers) { if(box_buffer)DeleteBuffers(1,&box_buffer);if(material_buffer)DeleteBuffers(1,&material_buffer);if(ray_buffer)DeleteBuffers(1,&ray_buffer); }
+        if(DeleteBuffers) { if(box_buffer)DeleteBuffers(1,&box_buffer);if(material_buffer)DeleteBuffers(1,&material_buffer);DeleteBuffers(GLsizei(calibration_count),ray_buffers.data()); }
         if(DeleteTextures) { if(texture_array)DeleteTextures(1,&texture_array);if(output_texture)DeleteTextures(1,&output_texture); }
         if(DeleteProgram && program)DeleteProgram(program);
         if(DeleteProgram && post_program)DeleteProgram(post_program);
@@ -620,9 +682,11 @@ struct GpuRenderer::Impl {
 };
 
 GpuRenderer::GpuRenderer(const Camera& camera,const Scene& scene,const TextureBank& textures,const Config& config)
-    :impl_(std::make_unique<Impl>(camera,scene,textures,config)) {}
+    :GpuRenderer(std::vector<Camera>{camera},scene,textures,config) {}
+GpuRenderer::GpuRenderer(const std::vector<Camera>& cameras,const Scene& scene,const TextureBank& textures,const Config& config)
+    :impl_(std::make_unique<Impl>(cameras,scene,textures,config)) {}
 GpuRenderer::~GpuRenderer()=default;
-std::vector<Image8> GpuRenderer::render(const std::vector<Pose>& poses,const std::vector<uint64_t>& seeds) const { return impl_->render(poses,seeds); }
+std::vector<Image8> GpuRenderer::render(const std::vector<Pose>& poses,const std::vector<uint64_t>& seeds,const std::vector<size_t>& cameras) const { return impl_->render(poses,seeds,cameras); }
 const std::string& GpuRenderer::device_name() const { return impl_->name; }
 std::string GpuRenderer::profile() const { return impl_->profile(); }
 
@@ -631,8 +695,9 @@ std::string GpuRenderer::profile() const { return impl_->profile(); }
 struct GpuRenderer::Impl {};
 std::string GpuRenderer::profile() const { return {}; }
 GpuRenderer::GpuRenderer(const Camera&,const Scene&,const TextureBank&,const Config&) { throw std::runtime_error("VioSim GPU renderer is not available in this build"); }
+GpuRenderer::GpuRenderer(const std::vector<Camera>&,const Scene&,const TextureBank&,const Config&) { throw std::runtime_error("VioSim GPU renderer is not available in this build"); }
 GpuRenderer::~GpuRenderer()=default;
-std::vector<Image8> GpuRenderer::render(const std::vector<Pose>&,const std::vector<uint64_t>&) const { throw std::runtime_error("VioSim GPU renderer is not available in this build"); }
+std::vector<Image8> GpuRenderer::render(const std::vector<Pose>&,const std::vector<uint64_t>&,const std::vector<size_t>&) const { throw std::runtime_error("VioSim GPU renderer is not available in this build"); }
 const std::string& GpuRenderer::device_name() const { static const std::string empty;return empty; }
 
 #endif

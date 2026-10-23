@@ -1,0 +1,24 @@
+# B50 dataset1 optical calibration; rates/noise are synthetic choices.
+calibration: b50_calib_fisheyes.txt
+scene: corridor # Clear space for the 3.6 m long eight at size: 2.
+trajectory: figure8_forward
+figure8_shape: bernoulli # Rounded lobes, smooth crossing through the center.
+motion_reference_camera: 0 # Camera 0 looks along the 3D motion tangent.
+imu_frame: camera
+difficulty: easy
+duration: 60
+period: 12
+warmup: 2
+ramp: 2
+size: 2.
+figure8_height: 0.02
+roll_deg: 2
+camera_hz: 20
+imu_hz: 500
+samples: 1
+threads: 4
+renderer: auto
+gpu_precompute_rays: true
+gpu_postprocess: true
+profile_render: true
+preview_count: 3

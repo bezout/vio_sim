@@ -69,6 +69,15 @@ install(DIRECTORY assets DESTINATION share/viosim)
 install(DIRECTORY examples DESTINATION share/viosim)
 
 if(BUILD_TESTING)
+  add_executable(test_viosim_helmet6 test_helmet6.cpp)
+  target_link_libraries(test_viosim_helmet6 PRIVATE viosim_core)
+  add_test(NAME viosim_helmet6 COMMAND $<TARGET_FILE:test_viosim_helmet6>
+      ${CMAKE_CURRENT_SOURCE_DIR}/examples/helmet6.yaml ${CMAKE_CURRENT_SOURCE_DIR}/assets/textures)
+  set_tests_properties(viosim_helmet6 PROPERTIES LABELS "unit;viosim;geometry")
+  add_executable(test_viosim_calibration test_calibration.cpp)
+  target_link_libraries(test_viosim_calibration PRIVATE viosim_core)
+  add_test(NAME viosim_calibration COMMAND $<TARGET_FILE:test_viosim_calibration>
+      ${CMAKE_CURRENT_SOURCE_DIR}/examples/b50_calib_fisheyes.txt ${CMAKE_CURRENT_SOURCE_DIR}/assets/textures)
   add_executable(test_viosim_imu_frame test_imu_frame.cpp)
   target_link_libraries(test_viosim_imu_frame PRIVATE viosim_core)
   add_test(NAME viosim_imu_frame COMMAND $<TARGET_FILE:test_viosim_imu_frame>)

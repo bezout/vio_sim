@@ -12,6 +12,16 @@ Config prepare(Config config,const std::filesystem::path& executable) {
     config.assets=locate_assets(config,executable).string();
     return config;
 }
+std::vector<Camera> make_cameras(const Config& config,bool precompute) {
+    std::vector<Camera> cameras;
+    const bool separate=std::any_of(config.camera_extrinsics.begin(),config.camera_extrinsics.end(),
+                                   [](const CameraExtrinsic& c){return c.intrinsics_set;});
+    if(separate) {
+        cameras.reserve(config.camera_extrinsics.size());
+        for(const auto& calibration:config.camera_extrinsics) cameras.emplace_back(config,calibration,precompute);
+    } else cameras.emplace_back(config,precompute);
+    return cameras;
+}
 
 }
 
@@ -58,7 +68,7 @@ TrajectoryStats preflight(const Config& config,const Scene& scene,const Rig& rig
 
 Simulation::Simulation(Config config,const std::filesystem::path& executable)
     : config_(prepare(std::move(config),executable)),
-      scene_(make_scene(config_.scene)),rig_(config_),camera_(config_,config_.renderer=="cpu"),textures_(config_.assets,config_.scene=="lab_room"),
+      scene_(make_scene(config_.scene)),rig_(config_),cameras_(make_cameras(config_,config_.renderer=="cpu")),textures_(config_.assets,config_.scene=="lab_room"),
       imu_trajectory_(std::make_unique<TrajectoryCursor>(config_,scene_,rig_)),
       camera_trajectory_(std::make_unique<TrajectoryCursor>(config_,scene_,rig_)),
       gyro_noise_(mix_seed(config_.seed^0x696d75677972ULL)),
@@ -68,13 +78,13 @@ Simulation::Simulation(Config config,const std::filesystem::path& executable)
     stats_=preflight(config_,scene_,rig_);
     if(config_.renderer!="cpu") {
         try {
-            gpu_renderer_=std::make_shared<GpuRenderer>(camera_,scene_,textures_,config_);
+            gpu_renderer_=std::make_shared<GpuRenderer>(cameras_,scene_,textures_,config_);
             renderer_backend_="gpu";
             renderer_note_=gpu_renderer_->device_name();
         } catch(const std::exception& error) {
             if(config_.renderer=="gpu") throw;
             renderer_note_=error.what();
-            camera_=Camera(config_);
+            cameras_=make_cameras(config_,true);
         }
     }
     const bool ideal_imu=config_.gyro_noise_density==0 && config_.accel_noise_density==0 &&
@@ -111,6 +121,7 @@ CameraGroup Simulation::prepare_camera_group(int64_t index,const std::vector<siz
     std::vector<size_t> cameras;
     if(selected.empty()) { cameras.resize(rig_.size()); for(size_t camera=0;camera<rig_.size();++camera) cameras[camera]=camera; }
     else cameras=selected;
+    group.camera_indices=cameras;
     const State body=camera_trajectory_->at(double(index)/config_.camera_hz);
     group.poses.reserve(cameras.size()); group.image_seeds.reserve(cameras.size());
     for(size_t camera:cameras) {
@@ -133,12 +144,13 @@ CameraGroup Simulation::render_camera_group(CameraGroup group) const {
         return group;
     }
     if(gpu_renderer_) {
-        group.images=gpu_renderer_->render(group.poses,group.image_seeds);
+        group.images=gpu_renderer_->render(group.poses,group.image_seeds,group.camera_indices);
         return group;
     }
     group.images.reserve(group.poses.size());
     for(size_t camera=0;camera<group.poses.size();++camera)
-        group.images.push_back(render(camera_,scene_,textures_,group.poses[camera],config_,group.image_seeds[camera]));
+        group.images.push_back(render(this->camera(group.camera_indices.empty()?camera:group.camera_indices[camera]),
+                                      scene_,textures_,group.poses[camera],config_,group.image_seeds[camera]));
     return group;
 }
 
